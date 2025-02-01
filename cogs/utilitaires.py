@@ -10,9 +10,7 @@ class Utilitaire(commands.Cog):
         self.permissions_file = "role_permissions.json"
         self.role_permissions = self.load_permissions()
 
-# FAKE COMMAND -----------------------------
-
-    @discord.app_commands.hybrid_command(name="fake", description="Affiche un membre comme étant fake")
+    @discord.app_commands.hybrid_command(name="fake", description="Affiche un membre comme fake")
     @commands.guild_only()
     async def fake(self, ctx, member: discord.Member):
         """Renomme le membre spécifié en fake (ajoute [fake] avant son pseudo) et annonce dans un salon"""
@@ -33,8 +31,6 @@ class Utilitaire(commands.Cog):
         else:
             await ctx.send("Le salon d'annonce n'a pas été trouvé.")
 
-# EFFACER COMMAND -----------------------------
-
     @discord.app_commands.hybrid_command(name="effacer", description="Efface un nombre spécifié de messages")
     @commands.has_permissions(manage_messages=True)
     async def effacer(self, ctx, nombre: int):
@@ -49,8 +45,6 @@ class Utilitaire(commands.Cog):
         deleted = await ctx.channel.purge(limit=nombre)
         await ctx.send(f"{len(deleted)} messages ont été supprimés.", delete_after=5)
 
-# ROLE COMMAND --------------------------------
-
     def load_permissions(self):
         """Charge les permissions depuis le fichier JSON."""
         if os.path.exists(self.permissions_file):
@@ -64,7 +58,7 @@ class Utilitaire(commands.Cog):
             json.dump(self.role_permissions, f, indent=4)
 
     @commands.has_permissions(administrator=True)
-    @app_commands.command(name="roleperm", description="Permet à un rôle de donner et retirer un autre rôle.")
+    @discord.app_commands.hybrid_command(name="roleperm", description="Permet à un rôle de donner et retirer un autre rôle.")
     async def set_role_permission(self, ctx: discord.Interaction, executant_role: discord.Role, target_role: discord.Role):
         if str(executant_role.id) not in self.role_permissions:
             self.role_permissions[str(executant_role.id)] = []
@@ -81,7 +75,7 @@ class Utilitaire(commands.Cog):
             )
 
     @commands.has_permissions(administrator=True)
-    @app_commands.command(name="roleperm_remove", description="Retire la permission d'un rôle d'en gérer un autre.")
+    @discord.app_commands.hybrid_command(name="roleperm_remove", description="Retire la permission d'un rôle d'en gérer un autre.")
     async def remove_role_permission(self, ctx: discord.Interaction, executant_role: discord.Role, target_role: discord.Role):
         if str(executant_role.id) not in self.role_permissions or target_role.id not in self.role_permissions[str(executant_role.id)]:
             await ctx.response.send_message(
@@ -98,7 +92,7 @@ class Utilitaire(commands.Cog):
             f"Le rôle `{executant_role.name}` ne peut désormais plus gérer `{target_role.name}`.", ephemeral=True
         )
 
-    @app_commands.command(name="roleadd", description="Ajoute un rôle à un membre.")
+    @discord.app_commands.hybrid_command(name="roleadd", description="Ajoute un rôle à un membre.")
     async def add_role(self, ctx: discord.Interaction, member: discord.Member, role: discord.Role):
         author_roles = [role.id for role in ctx.user.roles]
 
@@ -114,7 +108,7 @@ class Utilitaire(commands.Cog):
         except discord.Forbidden:
             await ctx.response.send_message("Je n'ai pas les permissions nécessaires pour attribuer ce rôle.", ephemeral=True)
 
-    @app_commands.command(name="roleremove", description="Retire un rôle d'un membre.")
+    @discord.app_commands.hybrid_command(name="roleremove", description="Retire un rôle d'un membre.")
     async def remove_role(self, ctx: discord.Interaction, member: discord.Member, role: discord.Role):
         author_roles = [role.id for role in ctx.user.roles]
 
@@ -130,5 +124,5 @@ class Utilitaire(commands.Cog):
         except discord.Forbidden:
             await ctx.response.send_message("Je n'ai pas les permissions nécessaires pour retirer ce rôle.", ephemeral=True)
 
-def setup(bot):
-    bot.add_cog(Utilitaire(bot))
+async def setup(bot):
+    await bot.add_cog(Utilitaire(bot))
