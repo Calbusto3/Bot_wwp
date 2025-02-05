@@ -16,7 +16,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.all()
 
 # Création du bot avec un préfixe "*" pour les commandes et support des commandes slash
-bot = commands.Bot(command_prefix="*", intents=intents, help_command=None)
+bot = commands.Bot(command_prefix="+", intents=intents, help_command=None)
 
 # Charger les cogs automatiquement
 @bot.event
