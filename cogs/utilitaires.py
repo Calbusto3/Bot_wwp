@@ -40,11 +40,60 @@ class Utilitaire(commands.Cog):
             return
 
         # Notification dans le canal défini
-        salon_id = 1250466390675292201  # Remplace cet ID par le bon si nécessaire
+        salon_id = 1250466390675292201
         channel = self.bot.get_channel(salon_id)
         if channel:
             await channel.send(
                 f"{member.mention} est considéré comme fake par le staff, attention aux interactions avec cette personne."
+            )
+        else:
+            await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
+
+    @app_commands.command(name="unfake", description="Retire le statut de fake d'un membre")
+    @app_commands.describe(member="Le membre dont on veut retirer le statut de fake")
+    async def unfake(self, interaction: discord.Interaction, member: discord.Member):
+        """Retire le statut de fake en enlevant le préfixe '[fake]' du pseudo d'un membre."""
+        
+        # Si le pseudo contient [fake], on l'enlève
+        if member.display_name.startswith("[fake]"):
+            new_nick = member.display_name[7:]  # Enlève le préfixe "[fake] "
+        else:
+            await interaction.response.send_message(
+                f"{member.mention} n'est pas afficher comme 'fake'.", ephemeral=True
+            )
+            return
+
+        # Vérifie les permissions du bot
+        if not interaction.guild.me.guild_permissions.manage_nicknames:
+            await interaction.response.send_message(
+                "Je n'ai pas la permission de changer les pseudos des membres.", ephemeral=True
+            )
+            return
+
+        try:
+            # Applique le nouveau pseudo
+            await member.edit(nick=new_nick)
+            await interaction.response.send_message(
+                f"Le statut de fake de {member.mention} a été retiré.", ephemeral=True
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f"Je n'ai pas les permissions nécessaires pour enlever {member.mention} comme fake.", 
+                ephemeral=True
+            )
+            return
+        except Exception as e:
+            await interaction.response.send_message(
+                f"Erreur inattendue : {str(e)}", ephemeral=True
+            )
+            return
+
+        # Notification dans le canal défini
+        salon_id = 1250466390675292201
+        channel = self.bot.get_channel(salon_id)
+        if channel:
+            await channel.send(
+                f"{member.mention} n'est plus considéré comme fake par le staff."
             )
         else:
             await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
