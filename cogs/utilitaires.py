@@ -7,39 +7,36 @@ class Utilitaire(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+import discord
+from discord.ext import commands
+from discord import app_commands
+
+class Utilitaire(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
-    @app_commands.describe(member="Le membre à afficher comme fake")
-    async def fake(self, interaction: discord.Interaction, member: discord.Member):
+    @app_commands.describe(
+        member="Le membre à afficher comme fake", 
+        avertir="Voulez-vous avertir le membre ?"
+    )
+    async def fake(self, interaction: discord.Interaction, member: discord.Member, avertir: bool = False):
         """Marque un utilisateur comme fake en ajoutant '[fake]' à son pseudo."""
-        # Nouveau pseudo
+        
         new_nick = f"[fake] {member.display_name}"
 
-        # Vérifie les permissions du bot
-        if not interaction.guild.me.guild_permissions.manage_nicknames:
-            await interaction.response.send_message(
-                "Je n'ai pas la permission de changer les pseudos des membres.", ephemeral=True
-            )
-            return
-
         try:
-            # Applique le pseudo
             await member.edit(nick=new_nick)
             await interaction.response.send_message(
                 f"{member.mention} a été affiché comme fake.", ephemeral=True
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                f"Je n'ai pas les permissions nécessaires pour modifier le pseudo de {member.mention}.", 
+                f"Je n'ai pas les permissions nécessaires pour modifier le pseudo de {member.mention}.",
                 ephemeral=True
             )
             return
-        except Exception as e:
-            await interaction.response.send_message(
-                f"Erreur inattendue : {str(e)}", ephemeral=True
-            )
-            return
 
-        # Notification dans le canal défini
         salon_id = 1250466390675292201
         channel = self.bot.get_channel(salon_id)
         if channel:
@@ -48,6 +45,28 @@ class Utilitaire(commands.Cog):
             )
         else:
             await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
+
+        # Avertir le membre si l'option est activée
+        if avertir:
+            embed = discord.Embed(
+                title="Vous êtes marqué comme fake",
+                description=(
+                    f"Bonjour {member.mention},\n\n"
+                    "Vous avez été marqué comme `fake` par le staff. "
+                    "Si vous pensez que cette décision est une erreur, vous pouvez ouvrir un ticket "
+                    "pour vous faire vérifier et retirer cette mention.\n\n"
+                    "Merci de votre compréhension - World War Porn."
+                ),
+                color=discord.Color.red()
+            )
+            embed.set_footer(text="Contactez le staff via un ticket si besoin.")
+            
+            try:
+                await member.send(embed=embed)
+            except discord.Forbidden:
+                await interaction.followup.send(
+                    f"Impossible d'avertir {member.mention} par message privé, il doit les avoir désactivé."
+                )
 
     @app_commands.command(name="unfake", description="Retire le statut de fake d'un membre")
     @app_commands.describe(member="Le membre dont on veut retirer le statut de fake")
