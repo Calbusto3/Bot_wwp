@@ -23,12 +23,12 @@ class Utilitaire(commands.Cog):
     async def fake(self, interaction: discord.Interaction, member: discord.Member, avertir: bool = False):
         """Marque un utilisateur comme fake en ajoutant '[fake]' à son pseudo."""
         
-        new_nick = f"[fake] {member.display_name}"
+        new_nick = f"[FAKE] {member.display_name}"
 
         try:
             await member.edit(nick=new_nick)
             await interaction.response.send_message(
-                f"{member.mention} a été affiché comme fake.", ephemeral=True
+                f"{member.mention} a été affiché comme fake."
             )
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -74,7 +74,7 @@ class Utilitaire(commands.Cog):
         """Retire le statut de fake en enlevant le préfixe '[fake]' du pseudo d'un membre."""
         
         # Si le pseudo contient [fake], on l'enlève
-        if member.display_name.startswith("[fake]"):
+        if member.display_name.startswith("[FAKE]"):
             new_nick = member.display_name[7:]  # Enlève le préfixe "[fake] "
         else:
             await interaction.response.send_message(
@@ -93,7 +93,7 @@ class Utilitaire(commands.Cog):
             # Applique le nouveau pseudo
             await member.edit(nick=new_nick)
             await interaction.response.send_message(
-                f"Le statut de fake de {member.mention} a été retiré.", ephemeral=True
+                f"Le statut de fake de {member.mention} a été retiré."
             )
         except discord.Forbidden:
             await interaction.response.send_message(
