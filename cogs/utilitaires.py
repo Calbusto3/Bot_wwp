@@ -1,15 +1,9 @@
+from typing import Optional
 import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime, timedelta
-
-class Utilitaire(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-import discord
-from discord.ext import commands
-from discord import app_commands
+import asyncio
 
 class Utilitaire(commands.Cog):
     def __init__(self, bot):
@@ -18,13 +12,15 @@ class Utilitaire(commands.Cog):
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
     @app_commands.describe(
         member="Le membre à afficher comme fake", 
-        avertir="Voulez-vous avertir le membre ?"
+        avertir="Voulez-vous avertir le membre ?",
+        preuve="Ajoutez une image comme preuve (facultatif)"
     )
-    async def fake(self, interaction: discord.Interaction, member: discord.Member, avertir: bool = False):
+    async def fake(self, interaction: discord.Interaction, member: discord.Member, avertir: bool = False, preuve: Optional[discord.Attachment] = None):
         """Marque un utilisateur comme fake en ajoutant '[fake]' à son pseudo."""
-        
+
         new_nick = f"[FAKE] {member.display_name}"
 
+        # Essayer de modifier le pseudo du membre
         try:
             await member.edit(nick=new_nick)
             await interaction.response.send_message(
@@ -39,28 +35,36 @@ class Utilitaire(commands.Cog):
 
         salon_id = 1250466390675292201
         channel = self.bot.get_channel(salon_id)
-        if channel:
-            await channel.send(
-                f"{member.mention} est considéré comme fake par le staff, attention aux interactions avec cette personne."
-            )
-        else:
-            await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
+
+        # Essayer d'envoyer un message dans le salon d'annonce
+        try:
+            if channel:
+                message = f"{member.mention} est considéré comme fake par le staff, attention aux interactions avec cette personne."
+                if preuve:
+                    # Préparer le fichier si une preuve est fournie
+                    file = await preuve.to_file()
+                    await channel.send(message, file=file)
+                else:
+                    await channel.send(message)
+            else:
+                await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Erreur lors de l'envoi du message d'annonce : {str(e)}", ephemeral=True)
 
         # Avertir le membre si l'option est activée
         if avertir:
             embed = discord.Embed(
                 title="Vous êtes marqué comme fake",
-                description=(
-                    f"Bonjour {member.mention},\n\n"
-                    "Vous avez été marqué comme `fake` par le staff. "
-                    "Si vous pensez que cette décision est une erreur, vous pouvez ouvrir un ticket "
-                    "pour vous faire vérifier et retirer cette mention.\n\n"
-                    "Merci de votre compréhension - World War Porn."
-                ),
+                description=(f"Bonjour {member.mention},\n\n"
+                             "Vous avez été marqué comme `fake` par le staff. "
+                             "Si vous pensez que cette décision est une erreur, vous pouvez ouvrir un ticket "
+                             "pour vous faire vérifier et retirer cette mention.\n\n"
+                             "Merci de votre compréhension - World War Porn."),
                 color=discord.Color.red()
             )
             embed.set_footer(text="Contactez le staff via un ticket si besoin.")
             
+            # Essayer d'envoyer un message privé au membre
             try:
                 await member.send(embed=embed)
             except discord.Forbidden:
@@ -78,7 +82,7 @@ class Utilitaire(commands.Cog):
             new_nick = member.display_name[7:]  # Enlève le préfixe "[fake] "
         else:
             await interaction.response.send_message(
-                f"{member.mention} n'est pas afficher comme 'fake'.", ephemeral=True
+                f"{member.mention} n'est pas affiché comme 'fake'.", ephemeral=True
             )
             return
 
@@ -117,8 +121,6 @@ class Utilitaire(commands.Cog):
         else:
             await interaction.followup.send("Le salon d'annonce n'a pas été trouvé.", ephemeral=True)
 
-# supp
-
     @commands.hybrid_command(name="supprime", aliases=["sup"], with_app_command=True)
     @commands.has_permissions(manage_messages=True)
     async def supprimer(self, ctx: commands.Context, nombre: int):
@@ -134,7 +136,7 @@ class Utilitaire(commands.Cog):
         confirmation = await ctx.send(f"🗑️ {len(deleted)} message(s) supprimé(s).")
         await confirmation.delete(delay=5)
         
-    @discord.app_commands.command(name="envoie", description="Envoyer un message sous l'identité su bot.")
+    @app_commands.command(name="envoie", description="Envoyer un message sous l'identité du bot.")
     async def say_slash(self, interaction: discord.Interaction, message: str):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("❌ Vous n'avez pas la permission pour cette commande.", ephemeral=True)
@@ -239,6 +241,77 @@ class Utilitaire(commands.Cog):
             await ctx.send("❌ Aucun membre correspondant à cet ID n'a été trouvé.")
         except discord.Forbidden:
             await ctx.send("❌ Je n'ai pas les permissions nécessaires pour effectuer cette action.")
-  
+
+    @commands.hybrid_command(name="ban_multi", description="Bannit plusieurs membres à la fois.")
+    @app_commands.describe(
+        utilisateurs="Liste des utilisateurs à bannir (par nom ou ID, séparés par des virgules)",
+        raison="Raison du ban"
+    )
+    async def ban_multi(self, ctx: commands.Context, utilisateurs: str, raison: str = None):
+        """Bannit plusieurs membres à la fois."""
+
+        # Split the list of users
+        utilisateurs = utilisateurs.split(',')
+        # Optional: Remove extra spaces around names/IDs
+        utilisateurs = [user.strip() for user in utilisateurs]
+
+        # Prepare the message
+        message = f"Bannissement de {len(utilisateurs)} membres.\n"
+
+        for user in utilisateurs:
+            member = await self.get_member(ctx, user)
+            if member:
+                try:
+                    # Ban the user
+                    await member.ban(reason=raison)
+                    message += f"{member.mention} a été banni.\n"
+                except discord.Forbidden:
+                    message += f"Je n'ai pas les permissions nécessaires pour bannir {member.mention}.\n"
+            else:
+                message += f"Impossible de trouver l'utilisateur {user}.\n"
+
+        try:
+            if ctx.interaction:
+                await ctx.interaction.followup.send(message)
+            else:
+                await ctx.send(message)
+        except discord.Forbidden:
+            await ctx.author.send("Je n'ai pas les permissions nécessaires pour envoyer le message de confirmation dans le canal.")
+        except Exception as e:
+            await ctx.author.send(f"Une erreur s'est produite lors de l'envoi du message de confirmation : {str(e)}")
+
+    async def get_member(self, ctx: commands.Context, user_id_or_name: str):
+        """Récupère un membre par son ID ou son nom d'utilisateur."""
+        # Try to get user by ID
+        if user_id_or_name.isdigit():
+            member = ctx.guild.get_member(int(user_id_or_name))
+            if member:
+                return member
+        # Try to get user by username
+        member = discord.utils.get(ctx.guild.members, name=user_id_or_name)
+        if member:
+            return member
+        return None
+
+
+    @commands.hybrid_command(name='mp', description="Envoie un MP à un membre")
+    async def mp(self, ctx, member: discord.Member = None, *, message: str = None):
+        """Envoie un MP à un membre (commande hybride)."""
+        try:
+            # Validation des arguments
+            if not member:
+                await ctx.send("Vous devez mentionner un membre pour envoyer un MP.")
+                return
+            if not message:
+                await ctx.send("Vous devez fournir un message à envoyer.")
+                return
+
+            await member.send(message)
+            await ctx.send(f"Message envoyé à {member.mention}.")
+        except discord.Forbidden:
+            await ctx.send("Je ne peux pas envoyer de message à ce membre. Il a peut-être désactivé ses MP.")
+        except Exception as e:
+            await ctx.send(f"Une erreur est survenue : {str(e)}")
+            
 async def setup(bot: commands.Bot):
     await bot.add_cog(Utilitaire(bot))
