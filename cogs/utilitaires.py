@@ -247,7 +247,7 @@ class Utilitaire(commands.Cog):
         utilisateurs="Liste des utilisateurs à bannir (par nom ou ID, séparés par des virgules)",
         raison="Raison du ban"
     )
-    async def ban_multi(self, ctx: commands.Context, utilisateurs: str, raison: str = None):
+    async def ban_multi(self, ctx, utilisateurs: str, raison: str = None):
         """Bannit plusieurs membres à la fois."""
 
         # Split the list of users
@@ -271,16 +271,13 @@ class Utilitaire(commands.Cog):
                 message += f"Impossible de trouver l'utilisateur {user}.\n"
 
         try:
-            if ctx.interaction:
-                await ctx.interaction.followup.send(message)
-            else:
-                await ctx.send(message)
+            await ctx.send(message)
         except discord.Forbidden:
             await ctx.author.send("Je n'ai pas les permissions nécessaires pour envoyer le message de confirmation dans le canal.")
         except Exception as e:
             await ctx.author.send(f"Une erreur s'est produite lors de l'envoi du message de confirmation : {str(e)}")
 
-    async def get_member(self, ctx: commands.Context, user_id_or_name: str):
+    async def get_member(self, ctx, user_id_or_name):
         """Récupère un membre par son ID ou son nom d'utilisateur."""
         # Try to get user by ID
         if user_id_or_name.isdigit():
@@ -292,7 +289,6 @@ class Utilitaire(commands.Cog):
         if member:
             return member
         return None
-
 
     @commands.hybrid_command(name='mp', description="Envoie un MP à un membre")
     async def mp(self, ctx, member: discord.Member = None, *, message: str = None):
@@ -313,5 +309,30 @@ class Utilitaire(commands.Cog):
         except Exception as e:
             await ctx.send(f"Une erreur est survenue : {str(e)}")
             
+
+    @app_commands.command(name="staff", description="et préfixe le pseudomettre un membre staff")
+    async def staff(self, interaction: discord.Interaction, membre: discord.Member):
+        staff_roles = [1145807576353742908, 1134290681490317403, 1248046492091027548]  # Remplace par les ID des rôles staff
+        for role_id in staff_roles:
+            role = interaction.guild.get_role(role_id)
+            if role:
+                await membre.add_roles(role)
+
+        await membre.edit(nick=f"Porn {membre.display_name}")
+        await interaction.response.send_message(f"{membre.mention} a été promu en Staff", ephemeral=True)
+
+    @app_commands.command(name="unstaff", description="enlever un membre comme staff")
+    @app_commands.describe(membre="Le membre à rétrograder")
+    async def unstaff(self, interaction: discord.Interaction, membre: discord.Member):
+        staff_roles = [1145807576353742908, 1134290681490317403, 1248046492091027548]  # Remplace par les ID des rôles staff
+        for role_id in staff_roles:
+            role = interaction.guild.get_role(role_id)
+            if role:
+                await membre.remove_roles(role)
+
+        if membre.nick and membre.nick.startswith("Porn "):
+            await membre.edit(nick=membre.nick[8:])
+        await interaction.response.send_message(f"{membre.mention} a été rétrogradé", ephemeral=True)
+       
 async def setup(bot: commands.Bot):
     await bot.add_cog(Utilitaire(bot))
