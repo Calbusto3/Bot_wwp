@@ -1,1 +1,11 @@
-.venv/
+# Ignore les fichiers contenant des secrets
+config.json
+.env
+token.txt
+
+# Ignore les dossiers
+__pycache__/
+.vscode/
+*.pyc
+.DS_Store
+.env
