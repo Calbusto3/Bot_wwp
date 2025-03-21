@@ -188,6 +188,40 @@ class Utilitaire(commands.Cog):
             await ctx.send(f"❌ Une erreur s'est produite : {str(e)}")
 
     # ban
+   # ban
+    @commands.hybrid_command(name="ban", description="Bannir un membre du serveur.")
+    async def ban(self, ctx: commands.Context, member: discord.Member = None, reason: str = None):
+        # Vérification des permissions
+        if not ctx.author.guild_permissions.ban_members:
+            await ctx.send("❌ Vous n'avez pas la permission de bannir les membres.")
+            return
+
+        # Si aucun membre n'est mentionné, renvoyer un message d'erreur
+        if member is None:
+            await ctx.send("❌ Veuillez mentionner un membre à bannir.")
+            return
+
+        # Tentative de bannir le membre
+        try:
+            # Bannir le membre avec une raison
+            await member.ban(reason=reason)
+            
+            # Création du message Embed
+            embed = discord.Embed(
+                title="Vous avez été banni du serveur",
+                description=f"Vous avez été banni du serveur pour la raison suivante : {reason if reason else 'Aucune raison spécifiée.'}",
+                color=discord.Color.red()
+            )
+
+            # Envoi de l'embed en DM au membre banni
+            await member.send(embed=embed)
+
+            # Message de confirmation dans le serveur
+            await ctx.send(f"{member} a été banni avec succès pour la raison : {reason if reason else 'Aucune.'}")
+        except discord.Forbidden:
+            await ctx.send("❌ Je n'ai pas la permission de bannir ce membre.")
+        except discord.HTTPException:
+            await ctx.send("❌ Une erreur s'est produite en tentant de bannir ce membre.")
 
     # unban
     @commands.hybrid_command(name="unbannir", description="Unbannir un membre du serveur.")
