@@ -30,20 +30,20 @@ class InfoCommand(commands.Cog):
         select = Select(
             placeholder="Choisissez une commande pour plus d'informations",
             options=[
-                discord.SelectOption(label="/supprimer", description="supprimer un nombre définit de message dans un salon.", value="supprimer"),
+                discord.SelectOption(label="/supprimer", description="Supprimer un nombre défini de messages dans un salon.", value="supprimer"),
                 discord.SelectOption(label="/envoyer", description="Envoyer un message sous l'identité du bot.", value="envoyer"),
-                discord.SelectOption(label="/ban_multi", description="Bannir plusieurs membre à la fois", value="ban_multi"),
+                discord.SelectOption(label="/ban_multi", description="Bannir plusieurs membres à la fois", value="ban_multi"),
                 discord.SelectOption(label="/bannir", description="Bannir un membre", value="bannir"),
                 discord.SelectOption(label="/unbannir", description="Débannir un membre", value="unbannir"),
                 discord.SelectOption(label="/muter", description="Mute un membre", value="muter"),
                 discord.SelectOption(label="/unmuter", description="Unmute un membre", value="unmuter"),
-                discord.SelectOption(label="/fake", description="afficher un membre comme fake", value="fake"),
-                discord.SelectOption(label="/unfake", description="enlever un membre comme fake", value="unfake"),
+                discord.SelectOption(label="/fake", description="Afficher un membre comme fake", value="fake"),
+                discord.SelectOption(label="/unfake", description="Enlever un membre comme fake", value="unfake"),
                 discord.SelectOption(label="/message_all", description="Envoyer un message à tous les membres", value="message_all"),
-                discord.SelectOption(label="/envoyer", description="Envoyer un message sous l'identité du bot", value="envoyer"),
                 discord.SelectOption(label="/mp", description="Envoyer un message privé à un membre", value="mp"),
                 discord.SelectOption(label="/staff", description="Mettre un membre staff", value="staff"),
             ]
+
         )
 
         # Fonction de réponse pour le sélecteur
@@ -92,7 +92,7 @@ class InfoCommand(commands.Cog):
                     description="Cette commande permet de supprimer plusieurs messages à la fois dans un salon.",
                     color=discord.Color.red()
                 )
-                info_embed.add_field(name="Usage", value="/supprimer [''nombre'']", inline=False)
+                info_embed.add_field(name="Usage", value="/supprimer [''nombre''] | +sup [''nombre]", inline=False)
                 info_embed.add_field(name="Exemple", value="/supprimer 5", inline=False)
                 info_embed.add_field(name="Permission requise", value="Gérer les messages | modérateur", inline=False)
                 info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)
