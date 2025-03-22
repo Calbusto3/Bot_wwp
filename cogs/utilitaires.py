@@ -29,7 +29,7 @@ class Utilitaire(commands.Cog):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                f"Je n'ai pas les permissions nécessaires pour modifier le pseudo de {member.mention}.",
+                f"Je n'ai pas les permissions nécessaires pour afficher {member.mention} comme fake.",
                 ephemeral=True
             )
             return

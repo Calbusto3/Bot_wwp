@@ -194,7 +194,7 @@ class InfoCommand(commands.Cog):
                 info_embed.add_field(name="Permission requise", value="Administrateur", inline=False)
 
 
-            await interaction.response.send_message(embed=info_embed)
+            await interaction.response.send_message(embed=info_embed, ephemeral=True)
 
         select.callback = select_callback
 
