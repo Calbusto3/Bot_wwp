@@ -206,5 +206,5 @@ class InfoCommand(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
 # Ajout du cog au bot
-def setup(bot):
-    bot.add_cog(InfoCommand(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(InfoCommand(bot))
