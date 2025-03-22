@@ -1,9 +1,10 @@
 from typing import Optional
 import discord
 from discord.ext import commands
-from discord import app_commands
 from datetime import datetime, timedelta
 import asyncio
+import random
+from discord import app_commands, Embed, Forbidden, Member
 
 class Utilitaire(commands.Cog):
     def __init__(self, bot):
@@ -187,41 +188,62 @@ class Utilitaire(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Une erreur s'est produite : {str(e)}")
 
-    # ban
+
    # ban
-    @commands.hybrid_command(name="ban", description="Bannir un membre du serveur.")
-    async def ban(self, ctx: commands.Context, member: discord.Member = None, reason: str = None):
-        # Vérification des permissions
-        if not ctx.author.guild_permissions.ban_members:
-            await ctx.send("❌ Vous n'avez pas la permission de bannir les membres.")
-            return
 
-        # Si aucun membre n'est mentionné, renvoyer un message d'erreur
-        if member is None:
-            await ctx.send("❌ Veuillez mentionner un membre à bannir.")
-            return
+    @commands.hybrid_command(name="ban", description="Bannit un membre du serveur.")
+    @app_commands.describe(
+        membre="Le membre à bannir (mention ou ID)",
+        raison="La raison du ban"
+    )
+    @commands.has_permissions(ban_members=True)
+    async def ban(self, ctx, membre: Member, raison: str = "Aucune raison spécifiée"):
+        """Commande pour bannir un membre avec confirmation et GIF aléatoire."""
 
-        # Tentative de bannir le membre
+        # Liste de GIFs fun liés au ban/kick
+        gif_list = [
+            "https://media.giphy.com/media/3o7TKMt1VVNkHV2PaE/giphy.gif",
+            "https://media.giphy.com/media/l2JdZ4pvjH7t2vZpK/giphy.gif",
+            "https://media.giphy.com/media/jnQYWl1XALJgQ/giphy.gif",
+            "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
+            "https://media.giphy.com/media/l0MYEqEzwMWFCg8rm/giphy.gif",
+            "https://media.giphy.com/media/3ohhwv1X56AEKwEvrC/giphy.gif"
+        ]
+
+        chosen_gif = random.choice(gif_list)
+
+        # Embed pour MP du membre banni
+        dm_embed = Embed(
+            title="🚫 Tu as été banni !",
+            description=f"**Serveur :** {ctx.guild.name}\n**Raison :** {raison}",
+            color=discord.Color.red()
+        )
+        dm_embed.set_footer(text="Justice has been served ⚖️")
+        dm_embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
+
+        # Embed confirmation dans le salon
+        confirm_embed = Embed(
+            title="🔨 Ban effectué !",
+            description=f"**{membre.mention} a été banni !**\n\n**Raison :** {raison}",
+            color=discord.Color.red()
+        )
+        confirm_embed.set_footer(text=f"Action menée par {ctx.author}", icon_url=ctx.author.display_avatar.url)
+        confirm_embed.set_image(url=chosen_gif)
+
         try:
-            # Bannir le membre avec une raison
-            await member.ban(reason=reason)
-            
-            # Création du message Embed
-            embed = discord.Embed(
-                title="Vous avez été banni du serveur",
-                description=f"Vous avez été banni du serveur pour la raison suivante : {reason if reason else 'Aucune raison spécifiée.'}",
-                color=discord.Color.red()
-            )
+            # Essaye d'envoyer un DM
+            await membre.send(embed=dm_embed)
+        except:
+            pass  # DM fermés, ignore
 
-            # Envoi de l'embed en DM au membre banni
-            await member.send(embed=embed)
+        try:
+            await ctx.guild.ban(membre, reason=raison)
+            await ctx.send(embed=confirm_embed)
+        except Forbidden:
+            await ctx.send(f"Je n'ai pas les permissions nécessaires pour bannir {membre.mention}.")
+        except Exception as e:
+            await ctx.send(f"Erreur lors du bannissement : {str(e)}")
 
-            # Message de confirmation dans le serveur
-            await ctx.send(f"{member} a été banni avec succès pour la raison : {reason if reason else 'Aucune.'}")
-        except discord.Forbidden:
-            await ctx.send("❌ Je n'ai pas la permission de bannir ce membre.")
-        except discord.HTTPException:
-            await ctx.send("❌ Une erreur s'est produite en tentant de bannir ce membre.")
 
     # unban
     @commands.hybrid_command(name="unbannir", description="Unbannir un membre du serveur.")
@@ -243,51 +265,68 @@ class Utilitaire(commands.Cog):
 
     @commands.hybrid_command(name="ban_multi", description="Bannit plusieurs membres à la fois.")
     @app_commands.describe(
-        utilisateurs="Liste des utilisateurs à bannir (par nom ou ID, séparés par des virgules)",
+        utilisateurs="Liste des utilisateurs à bannir (séparés par des virgules)",
         raison="Raison du ban"
     )
-    async def ban_multi(self, ctx, utilisateurs: str, raison: str = None):
+    @commands.has_permissions(ban_members=True)
+    async def ban_multi(self, ctx, utilisateurs: str, raison: str = "Aucune raison précisée"):
         """Bannit plusieurs membres à la fois."""
 
-        # Split the list of users
-        utilisateurs = utilisateurs.split(',')
-        # Optional: Remove extra spaces around names/IDs
-        utilisateurs = [user.strip() for user in utilisateurs]
+        utilisateurs = [u.strip() for u in utilisateurs.split(',')]
+        result_embed = Embed(title="🚫 Résultats du bannissement", color=discord.Color.red())
+        result_embed.set_footer(text=f"Action par {ctx.author}", icon_url=ctx.author.display_avatar.url)
 
-        # Prepare the message
-        message = f"Bannissement de {len(utilisateurs)} membres.\n"
-
-        for user in utilisateurs:
-            member = await self.get_member(ctx, user)
+        for user_input in utilisateurs:
+            member = await self.get_member(ctx, user_input)
             if member:
                 try:
-                    # Ban the user
-                    await member.ban(reason=raison)
-                    message += f"{member.mention} a été banni.\n"
-                except discord.Forbidden:
-                    message += f"Je n'ai pas les permissions nécessaires pour bannir {member.mention}.\n"
+                    await ctx.guild.ban(member, reason=raison)
+                    result_embed.add_field(name=f"✅ {member}", value="Banni avec succès", inline=False)
+                except Forbidden:
+                    result_embed.add_field(name=f"❌ {member}", value="Permissions insuffisantes", inline=False)
+                except Exception as e:
+                    result_embed.add_field(name=f"❌ {member}", value=f"Erreur : {str(e)}", inline=False)
             else:
-                message += f"Impossible de trouver l'utilisateur {user}.\n"
+                result_embed.add_field(name=f"❌ {user_input}", value="Utilisateur introuvable", inline=False)
 
         try:
-            await ctx.send(message)
-        except discord.Forbidden:
-            await ctx.author.send("Je n'ai pas les permissions nécessaires pour envoyer le message de confirmation dans le canal.")
-        except Exception as e:
-            await ctx.author.send(f"Une erreur s'est produite lors de l'envoi du message de confirmation : {str(e)}")
+            await ctx.send(embed=result_embed)
+        except Forbidden:
+            await ctx.author.send("Je n'ai pas pu envoyer le message de confirmation dans le canal.")
 
-    async def get_member(self, ctx, user_id_or_name):
-        """Récupère un membre par son ID ou son nom d'utilisateur."""
-        # Try to get user by ID
-        if user_id_or_name.isdigit():
-            member = ctx.guild.get_member(int(user_id_or_name))
+    async def get_member(self, ctx, user_input):
+        """Récupère un membre via mention, ID, username ou username#discrim"""
+
+        # Vérifie si c'est une mention
+        if user_input.startswith("<@") and user_input.endswith(">"):
+            user_id = user_input.strip("<@!>")
+            if user_id.isdigit():
+                member = ctx.guild.get_member(int(user_id))
+                if member:
+                    return member
+
+        # Vérifie si c'est un ID brut
+        if user_input.isdigit():
+            member = ctx.guild.get_member(int(user_input))
             if member:
                 return member
-        # Try to get user by username
-        member = discord.utils.get(ctx.guild.members, name=user_id_or_name)
-        if member:
-            return member
-        return None
+            # Si membre pas trouvé (peut être banni ou quitté), fetch user
+            try:
+                user = await self.bot.fetch_user(int(user_input))
+                return user
+            except:
+                return None
+
+        # Vérifie avec username#discrim
+        if "#" in user_input:
+            name, discrim = user_input.split("#")
+            member = discord.utils.get(ctx.guild.members, name=name, discriminator=discrim)
+            if member:
+                return member
+
+        # Vérifie juste le nom
+        member = discord.utils.get(ctx.guild.members, name=user_input)
+        return member
 
     @commands.hybrid_command(name='mp', description="Envoie un MP à un membre")
     async def mp(self, ctx, member: discord.Member = None, *, message: str = None):
