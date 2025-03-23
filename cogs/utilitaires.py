@@ -58,7 +58,7 @@ class Utilitaire(commands.Cog):
                 # Message d'annonce dans le salon
                 salon_annonce = ctx.guild.get_channel(self.salon_annonce_id)
                 if salon_annonce:
-                    await salon_annonce.send(f"✅ {membre.mention} a été vérifié en tant que **{genre}** !")
+                    await salon_annonce.send(f"{membre.mention} a été vérifié en tant que **{genre}** ! Vous ne resquez plus rien de cette personne")
 
                 # Génération d'un code unique
                 code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
@@ -74,7 +74,7 @@ class Utilitaire(commands.Cog):
                         color=discord.Color.green()
                     )
                     embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
-                    embed_dm.set_footer(text="Conservez ce code, il pourra vous être demandé.")
+                    embed_dm.set_footer(text="Conservez bien ce code.")
                     embed_dm.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
 
                     await membre.send(embed=embed_dm)
