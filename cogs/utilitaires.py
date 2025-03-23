@@ -25,6 +25,7 @@ class Utilitaire(commands.Cog):
         self.generated_codes = set()
 
     @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
+    @commands.has_permissions(manage_members=True)
     async def verifier(self, ctx: commands.Context, membre: discord.Member):
         # Création du select pour choisir homme/femme
         options = [
@@ -35,6 +36,10 @@ class Utilitaire(commands.Cog):
         select = Select(placeholder="Choisissez le genre", options=options)
 
         async def select_callback(interaction: discord.Interaction):
+            if interaction.user != ctx.author:
+                await interaction.response.send_message("Seul l'auteur de la commande peut faire cette sélection.", ephemeral=True)
+                return
+
             genre = select.values[0]
 
             # Attribution des rôles
@@ -60,21 +65,21 @@ class Utilitaire(commands.Cog):
                 code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
             self.generated_codes.add(code)
 
-            # MP au membre
+            # MP au membre (embed)
             try:
                 embed_dm = discord.Embed(
                     title="Vérification réussie !",
-                    description=f"Félicitations {member.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** !",
+                    description=f"Félicitations {membre.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** !",
                     color=discord.Color.green()
                 )
                 embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
                 embed_dm.set_footer(text="Conservez bien ce code.")
                 embed_dm.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
 
-                await member.send(embed=embed_dm)
+                await membre.send(embed=embed_dm)
 
             except discord.Forbidden:
-                await ctx.send("Je n'ai pas pu envoyer un MP au membre, il/elle receverait pas son code de vérificaiton.", ephemeral=True)
+                await interaction.followup.send("Je n'ai pas pu envoyer un MP au membre. Il/elle ne recevra pas son code de vérification.", ephemeral=True)
 
             # Archivage du code
             salon_archive = ctx.guild.get_channel(self.salon_archive_id)
@@ -82,7 +87,7 @@ class Utilitaire(commands.Cog):
                 date = discord.utils.format_dt(discord.utils.utcnow(), "D")
                 await salon_archive.send(f"🔒 {membre} vérifié le {date} | Code de vérification : `{code}`")
 
-            await interaction.response.send_message(f"{membre.mention} est maintennat vérifié.e", ephemeral=True)
+            await interaction.response.send_message(f"{membre.mention} est maintenant vérifié(e) !", ephemeral=True)
 
         select.callback = select_callback
         view = View()
