@@ -62,7 +62,17 @@ class Utilitaire(commands.Cog):
 
             # MP au membre
             try:
-                await membre.send(f"🎉 Félicitations {membre.name}, vous avez été vérifié en tant que **{genre}** sur World War Porn !\nVotre code de vérification est : `{code}`. Gardez-le précieusement.")
+                embed_dm = discord.Embed(
+                    title="Vérification réussie !",
+                    description=f"Félicitations {member.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** !",
+                    color=discord.Color.green()
+                )
+                embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
+                embed_dm.set_footer(text="Conservez bien ce code.")
+                embed_dm.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
+
+                await member.send(embed=embed_dm)
+
             except discord.Forbidden:
                 await ctx.send("Je n'ai pas pu envoyer un MP au membre, il/elle receverait pas son code de vérificaiton.", ephemeral=True)
 
