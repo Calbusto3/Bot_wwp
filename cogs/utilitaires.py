@@ -58,7 +58,7 @@ class Utilitaire(commands.Cog):
                 # Message d'annonce dans le salon
                 salon_annonce = ctx.guild.get_channel(self.salon_annonce_id)
                 if salon_annonce:
-                    await salon_annonce.send(f"{membre.mention} a été vérifié en tant que **{genre}** ! Vous ne resquez plus rien de cette personne")
+                    await salon_annonce.send(f"{membre.mention} a été vérifié en tant que **{genre}** ! Vous ne risquez plus de vous faire arnaquer par cette personne")
 
                 # Génération d'un code unique
                 code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
