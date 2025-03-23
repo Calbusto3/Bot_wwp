@@ -23,7 +23,7 @@ class InfoCommand(commands.Cog):
             color=discord.Color.blue()
         )
         embed.add_field(name="Créateur du bot", value="@.Calbusto (ID: 1033834366822002769)", inline=False)
-        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V2.1.1)", inline=False)
+        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V3.1)", inline=False)
         embed.add_field(name="Sélectionnez une commande", value="Utilisez le menu déroulant ci-dessous pour obtenir des informations sur une commande.", inline=False)
 
         # Création du sélecteur pour choisir une commande
@@ -42,6 +42,7 @@ class InfoCommand(commands.Cog):
                 discord.SelectOption(label="/message_all", description="Envoyer un message à tous les membres", value="message_all"),
                 discord.SelectOption(label="/mp", description="Envoyer un message privé à un membre", value="mp"),
                 discord.SelectOption(label="/staff", description="Mettre un membre staff", value="staff"),
+                discord.SelectOption(label="/vérifier", description="vérifier un membre", value="vérifier"),
             ]
 
         )
@@ -50,7 +51,19 @@ class InfoCommand(commands.Cog):
         async def select_callback(interaction: discord.Interaction):
             selected_value = select.values[0]
             
-            if selected_value == "staff":
+            if selected_value == "vérifier":
+                info_embed = discord.Embed(
+                    title="vérifier",
+                    description="vérifier un membre, ce qui lui donne automatiquement les rôles de vérifications en fonction du genre\net fait un annonce dans le salon #vérifiés.\nun message mp lui est envoyé pour le/la félicité de la vérification,\ndans ce message se trouve le code de vérification unique aussi disponible au staff..",
+                    color=discord.Color.red()
+                )
+                info_embed.add_field(name="Usage", value="/vérifier [''membre''] [''genre'']", inline=False)
+                info_embed.add_field(name="Exemple", value="/staff @utilisateur home", inline=False)
+                info_embed.add_field(name="Permission requise", value="modérateur", inline=False)
+                info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)
+                info_embed.add_field(name="Autre commande(s) du style", value="fake", inline=False)
+            
+            elif selected_value == "staff":
                 info_embed = discord.Embed(
                     title="Commande /staff | /unstaff",
                     description="mettre ou enlever un membre comme étant staff.",
@@ -72,7 +85,7 @@ class InfoCommand(commands.Cog):
                 info_embed.add_field(name="Exemple", value="/fake @utilisateur", inline=False)
                 info_embed.add_field(name="Permission requise", value="Gérer les salons | modérateur", inline=False)
                 info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)
-                info_embed.add_field(name="Autre commande(s) du style", value="Aucune", inline=False)
+                info_embed.add_field(name="Autre commande(s) du style", value="fake", inline=False)
 
             elif selected_value == "fake":
                 info_embed = discord.Embed(
@@ -84,7 +97,7 @@ class InfoCommand(commands.Cog):
                 info_embed.add_field(name="Exemple", value="/fake @utilisateur True/Fals [image/ou non]", inline=False)
                 info_embed.add_field(name="Permission requise", value="Gérer les salons | modérateur", inline=False)
                 info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)
-                info_embed.add_field(name="Autre commande(s) du style", value="Aucune", inline=False)
+                info_embed.add_field(name="Autre commande(s) du style", value="vérifier", inline=False)
 
             elif selected_value == "supprimer":
                 info_embed = discord.Embed(
@@ -92,7 +105,7 @@ class InfoCommand(commands.Cog):
                     description="Cette commande permet de supprimer plusieurs messages à la fois dans un salon.",
                     color=discord.Color.red()
                 )
-                info_embed.add_field(name="Usage", value="/supprimer [''nombre''] | +sup [''nombre]", inline=False)
+                info_embed.add_field(name="Usage", value="/supprimer [''nombre''] | +sup [''nombre'']", inline=False)
                 info_embed.add_field(name="Exemple", value="/supprimer 5", inline=False)
                 info_embed.add_field(name="Permission requise", value="Gérer les messages | modérateur", inline=False)
                 info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)

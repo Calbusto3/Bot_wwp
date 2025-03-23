@@ -5,10 +5,80 @@ from datetime import datetime, timedelta
 import asyncio
 import random
 from discord import app_commands, Embed, Forbidden, Member
+from discord.ui import View, Select
+import string
+
 
 class Utilitaire(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+        # Liste des rôles selon le genre
+        self.roles_homme = [1248044201959227414, 1248282343718780979]  # Remplace par tes IDs de rôles homme
+        self.roles_femme = [1248044201959227414, 1248282244779343992]  # Remplace par tes IDs de rôles femme
+
+        # ID du salon pour annoncer la vérification
+        self.salon_annonce_id = 1353301864049016833  # Remplace par l'ID du salon d'annonce
+        self.salon_archive_id = 1353299043261874230  # Remplace par l'ID du salon d'archives
+
+        # Stockage des codes pour éviter les doublons (en mémoire, à mettre en BDD si besoin)
+        self.generated_codes = set()
+
+    @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
+    async def verifier(self, ctx: commands.Context, membre: discord.Member):
+        # Création du select pour choisir homme/femme
+        options = [
+            discord.SelectOption(label="Homme", description="Vérifier comme homme", value="homme"),
+            discord.SelectOption(label="Femme", description="Vérifier comme femme", value="femme")
+        ]
+
+        select = Select(placeholder="Choisissez le genre", options=options)
+
+        async def select_callback(interaction: discord.Interaction):
+            genre = select.values[0]
+
+            # Attribution des rôles
+            if genre == "homme":
+                for role_id in self.roles_homme:
+                    role = ctx.guild.get_role(role_id)
+                    if role:
+                        await membre.add_roles(role)
+            else:
+                for role_id in self.roles_femme:
+                    role = ctx.guild.get_role(role_id)
+                    if role:
+                        await membre.add_roles(role)
+
+            # Message d'annonce dans le salon
+            salon_annonce = ctx.guild.get_channel(self.salon_annonce_id)
+            if salon_annonce:
+                await salon_annonce.send(f"✅ {membre.mention} a été vérifié en tant que **{genre}** !")
+
+            # Génération d'un code unique
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            while code in self.generated_codes:
+                code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            self.generated_codes.add(code)
+
+            # MP au membre
+            try:
+                await membre.send(f"🎉 Félicitations {membre.name}, vous avez été vérifié en tant que **{genre}** sur World War Porn !\nVotre code de vérification est : `{code}`. Gardez-le précieusement.")
+            except discord.Forbidden:
+                await ctx.send("Je n'ai pas pu envoyer un MP au membre, il/elle receverait pas son code de vérificaiton.", ephemeral=True)
+
+            # Archivage du code
+            salon_archive = ctx.guild.get_channel(self.salon_archive_id)
+            if salon_archive:
+                date = discord.utils.format_dt(discord.utils.utcnow(), "D")
+                await salon_archive.send(f"🔒 {membre} vérifié le {date} | Code de vérification : `{code}`")
+
+            await interaction.response.send_message(f"{membre.mention} est maintennat vérifié.e", ephemeral=True)
+
+        select.callback = select_callback
+        view = View()
+        view.add_item(select)
+
+        await ctx.send("Sélectionnez le genre :", view=view)
 
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
     @app_commands.describe(
@@ -202,12 +272,11 @@ class Utilitaire(commands.Cog):
 
         # Liste de GIFs fun liés au ban/kick
         gif_list = [
-            "https://media.giphy.com/media/3o7TKMt1VVNkHV2PaE/giphy.gif",
-            "https://media.giphy.com/media/l2JdZ4pvjH7t2vZpK/giphy.gif",
-            "https://media.giphy.com/media/jnQYWl1XALJgQ/giphy.gif",
-            "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
-            "https://media.giphy.com/media/l0MYEqEzwMWFCg8rm/giphy.gif",
-            "https://media.giphy.com/media/3ohhwv1X56AEKwEvrC/giphy.gif"
+            "https://tenor.com/view/bane-no-banned-and-you-are-explode-gif-16047504",
+            "https://tenor.com/view/kermit-gun-kermit-gun-gif-16355306064126846866",
+            "https://tenor.com/view/mad-angry-rage-funa-kick-gif-17536300",
+            "https://tenor.com/view/eject-rand-ridley-inside-job-christian-slater-launch-gif-23666354",
+            "https://tenor.com/view/sniper-headshot-gif-22464808",
         ]
 
         chosen_gif = random.choice(gif_list)
