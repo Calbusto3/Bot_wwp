@@ -24,9 +24,10 @@ class Utilitaire(commands.Cog):
         # Stockage des codes pour éviter les doublons (en mémoire, à mettre en BDD si besoin)
         self.generated_codes = set()
 
-        @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
-        @commands.has_permissions(manage_members=True)  # Permission nécessaire
-        async def verifier(self, ctx: commands.Context, membre: discord.Member):
+    @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
+    @commands.has_permissions(manage_roles=True)  # Permission correcte ici
+    async def verifier(self, ctx: commands.Context, membre: discord.Member):
+
             # Création du select pour choisir homme/femme
             options = [
                 discord.SelectOption(label="Homme", description="Vérifier comme homme", value="homme"),
@@ -68,8 +69,8 @@ class Utilitaire(commands.Cog):
                 # MP au membre (embed)
                 try:
                     embed_dm = discord.Embed(
-                        title="✅ Vérification réussie !",
-                        description=f"Félicitations {membre.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** ! 🎉",
+                        title="Vérification réussie !",
+                        description=f"Félicitations {membre.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** !",
                         color=discord.Color.green()
                     )
                     embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
