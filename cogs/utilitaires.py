@@ -24,76 +24,76 @@ class Utilitaire(commands.Cog):
         # Stockage des codes pour éviter les doublons (en mémoire, à mettre en BDD si besoin)
         self.generated_codes = set()
 
-    @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
-    @commands.has_permissions(manage_members=True)
-    async def verifier(self, ctx: commands.Context, membre: discord.Member):
-        # Création du select pour choisir homme/femme
-        options = [
-            discord.SelectOption(label="Homme", description="Vérifier comme homme", value="homme"),
-            discord.SelectOption(label="Femme", description="Vérifier comme femme", value="femme")
-        ]
+        @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
+        @commands.has_permissions(manage_members=True)  # Permission nécessaire
+        async def verifier(self, ctx: commands.Context, membre: discord.Member):
+            # Création du select pour choisir homme/femme
+            options = [
+                discord.SelectOption(label="Homme", description="Vérifier comme homme", value="homme"),
+                discord.SelectOption(label="Femme", description="Vérifier comme femme", value="femme")
+            ]
 
-        select = Select(placeholder="Choisissez le genre", options=options)
+            select = Select(placeholder="Choisissez le genre", options=options)
 
-        async def select_callback(interaction: discord.Interaction):
-            if interaction.user != ctx.author:
-                await interaction.response.send_message("Seul l'auteur de la commande peut faire cette sélection.", ephemeral=True)
-                return
+            async def select_callback(interaction: discord.Interaction):
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message("Seul l'auteur de la commande peut faire cette sélection.", ephemeral=True)
+                    return
 
-            genre = select.values[0]
+                genre = select.values[0]
 
-            # Attribution des rôles
-            if genre == "homme":
-                for role_id in self.roles_homme:
-                    role = ctx.guild.get_role(role_id)
-                    if role:
-                        await membre.add_roles(role)
-            else:
-                for role_id in self.roles_femme:
-                    role = ctx.guild.get_role(role_id)
-                    if role:
-                        await membre.add_roles(role)
+                # Attribution des rôles
+                if genre == "homme":
+                    for role_id in self.roles_homme:
+                        role = ctx.guild.get_role(role_id)
+                        if role:
+                            await membre.add_roles(role)
+                else:
+                    for role_id in self.roles_femme:
+                        role = ctx.guild.get_role(role_id)
+                        if role:
+                            await membre.add_roles(role)
 
-            # Message d'annonce dans le salon
-            salon_annonce = ctx.guild.get_channel(self.salon_annonce_id)
-            if salon_annonce:
-                await salon_annonce.send(f"✅ {membre.mention} a été vérifié en tant que **{genre}** !")
+                # Message d'annonce dans le salon
+                salon_annonce = ctx.guild.get_channel(self.salon_annonce_id)
+                if salon_annonce:
+                    await salon_annonce.send(f"✅ {membre.mention} a été vérifié en tant que **{genre}** !")
 
-            # Génération d'un code unique
-            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-            while code in self.generated_codes:
+                # Génération d'un code unique
                 code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-            self.generated_codes.add(code)
+                while code in self.generated_codes:
+                    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                self.generated_codes.add(code)
 
-            # MP au membre (embed)
-            try:
-                embed_dm = discord.Embed(
-                    title="Vérification réussie !",
-                    description=f"Félicitations {membre.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** !",
-                    color=discord.Color.green()
-                )
-                embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
-                embed_dm.set_footer(text="Conservez bien ce code.")
-                embed_dm.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
+                # MP au membre (embed)
+                try:
+                    embed_dm = discord.Embed(
+                        title="✅ Vérification réussie !",
+                        description=f"Félicitations {membre.mention}, vous êtes maintenant vérifié(e) sur **{ctx.guild.name}** ! 🎉",
+                        color=discord.Color.green()
+                    )
+                    embed_dm.add_field(name="📄 Code de vérification", value=f"`{code}`", inline=False)
+                    embed_dm.set_footer(text="Conservez ce code, il pourra vous être demandé.")
+                    embed_dm.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty)
 
-                await membre.send(embed=embed_dm)
+                    await membre.send(embed=embed_dm)
 
-            except discord.Forbidden:
-                await interaction.followup.send("Je n'ai pas pu envoyer un MP au membre. Il/elle ne recevra pas son code de vérification.", ephemeral=True)
+                except discord.Forbidden:
+                    await interaction.followup.send("Je n'ai pas pu envoyer un MP au membre. Il/elle ne recevra pas son code de vérification.", ephemeral=True)
 
-            # Archivage du code
-            salon_archive = ctx.guild.get_channel(self.salon_archive_id)
-            if salon_archive:
-                date = discord.utils.format_dt(discord.utils.utcnow(), "D")
-                await salon_archive.send(f"🔒 {membre} vérifié le {date} | Code de vérification : `{code}`")
+                # Archivage du code
+                salon_archive = ctx.guild.get_channel(self.salon_archive_id)
+                if salon_archive:
+                    date = discord.utils.format_dt(discord.utils.utcnow(), "D")
+                    await salon_archive.send(f"🔒 {membre} vérifié le {date} | Code de vérification : `{code}`")
 
-            await interaction.response.send_message(f"{membre.mention} est maintenant vérifié(e) !", ephemeral=True)
+                await interaction.response.send_message(f"{membre.mention} est maintenant vérifié(e) !", ephemeral=True)
 
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
+            select.callback = select_callback
+            view = View()
+            view.add_item(select)
 
-        await ctx.send("Sélectionnez le genre :", view=view)
+            await ctx.send("Sélectionnez le genre :", view=view)
 
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
     @app_commands.describe(
