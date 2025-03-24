@@ -286,17 +286,6 @@ class Utilitaire(commands.Cog):
     async def ban(self, ctx, membre: Member, raison: str = "Aucune raison spécifiée"):
         """Commande pour bannir un membre avec confirmation et GIF aléatoire."""
 
-        # Liste de GIFs fun liés au ban/kick
-        gif_list = [
-            "https://tenor.com/view/bane-no-banned-and-you-are-explode-gif-16047504",
-            "https://tenor.com/view/kermit-gun-kermit-gun-gif-16355306064126846866",
-            "https://tenor.com/view/mad-angry-rage-funa-kick-gif-17536300",
-            "https://tenor.com/view/eject-rand-ridley-inside-job-christian-slater-launch-gif-23666354",
-            "https://tenor.com/view/sniper-headshot-gif-22464808",
-        ]
-
-        chosen_gif = random.choice(gif_list)
-
         # Embed pour MP du membre banni
         dm_embed = Embed(
             title="🚫 Tu as été banni !",
@@ -313,7 +302,6 @@ class Utilitaire(commands.Cog):
             color=discord.Color.red()
         )
         confirm_embed.set_footer(text=f"Action menée par {ctx.author}", icon_url=ctx.author.display_avatar.url)
-        confirm_embed.set_image(url=chosen_gif)
 
         try:
             # Essaye d'envoyer un DM
