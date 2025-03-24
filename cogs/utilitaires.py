@@ -7,6 +7,8 @@ import random
 from discord import app_commands, Embed, Forbidden, Member
 from discord.ui import View, Select
 import string
+import json
+import os
 
 
 class Utilitaire(commands.Cog):
@@ -23,7 +25,66 @@ class Utilitaire(commands.Cog):
 
         # Stockage des codes pour éviter les doublons (en mémoire, à mettre en BDD si besoin)
         self.generated_codes = set()
+        
+        self.bot = bot
+        self.sanctions_file = 'sanctions.json'
+        self.load_sanctions()
 
+
+    def load_sanctions(self):
+        if os.path.exists(self.sanctions_file):
+            with open(self.sanctions_file, 'r', encoding='utf-8') as f:
+                self.sanctions = json.load(f)
+        else:
+            self.sanctions = {}
+
+    def save_sanctions(self):
+        with open(self.sanctions_file, 'w', encoding='utf-8') as f:
+            json.dump(self.sanctions, f, ensure_ascii=False, indent=4)
+
+    @commands.hybrid_command(name="avertir", description="Avertir un membre")
+    @commands.has_permissions(manage_messages=True)
+    async def avertir(self, ctx, membre: discord.Member, *, raison: str = "Aucune raison spécifiée."):
+        """Avertit un membre et enregistre la sanction."""
+        guild_id = str(ctx.guild.id)
+        membre_id = str(membre.id)
+        modérateur = ctx.author
+
+        if guild_id not in self.sanctions:
+            self.sanctions[guild_id] = {}
+
+        if membre_id not in self.sanctions[guild_id]:
+            self.sanctions[guild_id][membre_id] = []
+
+        sanction = {
+            "type": "Avertissement",
+            "date": datetime.now().strftime("%A %d %B %Y à %H:%M"),
+            "modérateur": f"{modérateur} (@{modérateur.name})",
+            "raison": raison
+        }
+
+        self.sanctions[guild_id][membre_id].append(sanction)
+        self.save_sanctions()
+
+        await ctx.send(f"✅ {membre.mention} a été averti.\nRaison : {raison}")
+
+    @commands.hybrid_command(name="sanction_liste", description="Affiche l'historique des sanctions d'un membre.")
+    @commands.has_permissions(manage_messages=True)
+    async def sanction_liste(self, ctx, membre: discord.Member):
+        """Affiche l'historique des sanctions d'un membre."""
+        guild_id = str(ctx.guild.id)
+        membre_id = str(membre.id)
+
+        if guild_id in self.sanctions and membre_id in self.sanctions[guild_id]:
+            sanctions = self.sanctions[guild_id][membre_id]
+            historique = [f"**{s['type']}**\n{datetime.strptime(s['date'], '%A %d %B %Y à %H:%M').strftime('%A %d %B %Y à %H:%M')}\nModérateur : {s['modérateur']}\nRaison : {s['raison']}" for s in sanctions]
+            historique_str = "\n\n".join(historique)
+            embed = discord.Embed(title=f"Historique de {membre} (@{membre.name})", description=historique_str, color=discord.Color.orange())
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"ℹ️ {membre.mention} n'a aucune sanction enregistrée.")
+            
+            
     @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
     @commands.has_permissions(manage_roles=True)  # Permission correcte ici
     async def verifier(self, ctx: commands.Context, membre: discord.Member):
@@ -95,6 +156,8 @@ class Utilitaire(commands.Cog):
             view.add_item(select)
 
             await ctx.send("Sélectionnez le genre :", view=view)
+
+
 
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
     @app_commands.describe(
