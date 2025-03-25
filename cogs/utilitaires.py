@@ -383,6 +383,39 @@ class Utilitaire(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Une erreur s'est produite : {str(e)}")
 
+    @commands.hybrid_command(name="kick", description="Expulse un membre du serveur.")
+    @commands.has_permissions(kick_members=True)
+    async def kick(self, ctx, membre: discord.Member, *, raison: str = "Aucune raison spécifiée."):
+        """Expulse un membre avec un message privé expliquant la raison."""
+
+        # Création de l'embed pour le MP
+        embed_mp = discord.Embed(
+            title="🚪 Vous avez été expulsé !",
+            description=f"Vous avez été expulsé du serveur **{ctx.guild.name}**.",
+            color=discord.Color.red()
+        )
+        embed_mp.add_field(name="Raison :", value=raison, inline=False)
+        embed_mp.set_footer(text="Contactez un modérateur si nécessaire.")
+
+        # Essayer d'envoyer un MP
+        try:
+            await membre.send(embed=embed_mp)
+        except discord.Forbidden:
+            pass  # Si les MP sont désactivés, on ignore l'erreur.
+
+        # Expulsion du membre
+        await membre.kick(reason=raison)
+
+        # Message de confirmation en embed
+        embed_confirm = discord.Embed(
+            title="✅ Membre expulsé",
+            description=f"{membre.mention} a été expulsé avec succès.",
+            color=discord.Color.green()
+        )
+        embed_confirm.add_field(name="Raison :", value=raison, inline=False)
+        embed_confirm.set_footer(text=f"Expulsé par {ctx.author}")
+
+        await ctx.send(embed=embed_confirm)
 
    # ban
 
