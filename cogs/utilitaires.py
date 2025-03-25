@@ -56,9 +56,10 @@ class Utilitaire(commands.Cog):
         if membre_id not in self.sanctions[guild_id]:
             self.sanctions[guild_id][membre_id] = []
 
+        date_sanction = datetime.now().strftime("%A %d %B %Y à %H:%M")
         sanction = {
             "type": "Avertissement",
-            "date": datetime.now().strftime("%A %d %B %Y à %H:%M"),
+            "date": date_sanction,
             "modérateur": f"{modérateur} (@{modérateur.name})",
             "raison": raison
         }
@@ -66,7 +67,33 @@ class Utilitaire(commands.Cog):
         self.sanctions[guild_id][membre_id].append(sanction)
         self.save_sanctions()
 
-        await ctx.send(f"✅ {membre.mention} a été averti.\nRaison : {raison}")
+        # 📩 **MP au membre averti**
+        embed_mp = discord.Embed(
+            title="⚠️ Avertissement reçu",
+            description=f"Vous avez reçu un avertissement sur **{ctx.guild.name}**.",
+            color=discord.Color.red()
+        )
+        embed_mp.add_field(name="👮‍♂️ Modérateur", value=f"{modérateur.mention}", inline=False)
+        embed_mp.add_field(name="📅 Date", value=date_sanction, inline=False)
+        embed_mp.add_field(name="📌 Raison", value=raison, inline=False)
+        embed_mp.set_footer(text="Respectez les règles du serveur.")
+
+        try:
+            await membre.send(embed=embed_mp)
+        except discord.Forbidden:
+            await ctx.send(f"❌ Impossible d'envoyer un MP à {membre.mention}.")
+
+        # ✅ **Confirmation en embed**
+        embed_confirmation = discord.Embed(
+            title="✅ Avertissement délivré",
+            description=f"{membre.mention} a été averti.",
+            color=discord.Color.green()
+        )
+        embed_confirmation.add_field(name="👮‍♂️ Modérateur", value=f"{modérateur.mention}", inline=False)
+        embed_confirmation.add_field(name="📌 Raison", value=raison, inline=False)
+        embed_confirmation.set_footer(text=f"Avertissement enregistré le {date_sanction}")
+
+        await ctx.send(embed=embed_confirmation)
 
     @commands.hybrid_command(name="sanction_liste", description="Affiche l'historique des sanctions d'un membre.")
     @commands.has_permissions(manage_messages=True)
@@ -77,12 +104,31 @@ class Utilitaire(commands.Cog):
 
         if guild_id in self.sanctions and membre_id in self.sanctions[guild_id]:
             sanctions = self.sanctions[guild_id][membre_id]
-            historique = [f"**{s['type']}**\n{datetime.strptime(s['date'], '%A %d %B %Y à %H:%M').strftime('%A %d %B %Y à %H:%M')}\nModérateur : {s['modérateur']}\nRaison : {s['raison']}" for s in sanctions]
+            historique = []
+
+            for s in sanctions:
+                date_formatée = datetime.strptime(s['date'], "%A %d %B %Y à %H:%M").strftime("%A %d %B %Y à %H:%M")
+                historique.append(
+                    f"**{s['type']}**\n📅 {date_formatée}\n👮‍♂️ Modérateur : {s['modérateur']}\n📌 Raison : {s['raison']}"
+                )
+
             historique_str = "\n\n".join(historique)
-            embed = discord.Embed(title=f"Historique de {membre} (@{membre.name})", description=historique_str, color=discord.Color.orange())
+
+            embed = discord.Embed(
+                title=f"📜 Historique des sanctions de {membre} (@{membre.name})",
+                description=historique_str,
+                color=discord.Color.orange()
+            )
+
             await ctx.send(embed=embed)
         else:
-            await ctx.send(f"ℹ️ {membre.mention} n'a aucune sanction enregistrée.")
+            embed_vide = discord.Embed(
+                title="ℹ️ Aucune sanction",
+                description=f"{membre.mention} n'a aucune sanction enregistrée.",
+                color=discord.Color.blue()
+            )
+            await ctx.send(embed=embed_vide)
+
             
             
     @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
