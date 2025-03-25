@@ -16,12 +16,19 @@ class Config(commands.Cog):
             view = self.create_main_view()
             await ctx.send(embed=embed, view=view)
         elif option.lower() == "setup_accueil":
-            # Ici, on appelle directement la configuration de l'accueil
+            # Appel de la configuration des messages d'accueil
             cog = self.bot.get_cog("SetupAccueil")
             if cog:
-                await cog.setup_accueil(ctx)
+                await cog.run_setup_accueil(ctx)  # Appel mis à jour
             else:
                 await ctx.send("⚠️ Le module de configuration d'accueil est introuvable.")
+        elif option.lower() == "setup_autorole":
+            # Appel de la configuration des autorôles
+            cog = self.bot.get_cog("AutoRole")
+            if cog:
+                await cog.autorol(ctx)  # Lance la configuration de l'autorôle
+            else:
+                await ctx.send("⚠️ Le module de configuration des autorôles est introuvable.")
 
     def create_main_embed(self):
         """Crée l'embed principal du menu de configuration."""
@@ -29,7 +36,7 @@ class Config(commands.Cog):
                               description="Sélectionnez une fonctionnalité à configurer",
                               color=discord.Color.blue())
         embed.add_field(name="📌 Options disponibles :",
-                        value="- `Setup Accueil` : Configurer les messages d'accueil.\n- *(Autres à venir...)*",
+                        value="- `Setup Accueil` : Configurer les messages d'accueil.\n- `Setup Autorôle` : Configurer les autorôles.\n- *(Autres à venir...)*",
                         inline=False)
         embed.set_footer(text="Utilisez le menu déroulant ci-dessous pour choisir.")
         return embed
@@ -41,7 +48,8 @@ class Config(commands.Cog):
         select = Select(
             placeholder="Choisissez une fonctionnalité à configurer...",
             options=[
-                discord.SelectOption(label="Setup Accueil", value="setup_accueil", description="Configurer les messages d'accueil.")
+                discord.SelectOption(label="Setup Accueil", value="setup_accueil", description="Configurer les messages d'accueil."),
+                discord.SelectOption(label="Setup Autorôle", value="setup_autorole", description="Configurer les autorôles.")
             ]
         )
         

@@ -22,9 +22,11 @@ class SetupAccueil(commands.Cog):
         with open(self.config_file, "w", encoding="utf-8") as file:
             json.dump(self.config, file, indent=4)
 
-    @commands.hybrid_command(name="setup_accueil", description="Configurer les messages d'accueil.")
-    @commands.has_permissions(administrator=True)
-    async def setup_accueil(self, ctx):
+    async def run_setup_accueil(self, ctx):
+        """Permet d'ouvrir la configuration de l'accueil, accessible uniquement via /config et /setup."""
+        if not ctx.author.guild_permissions.administrator:
+            return await ctx.send("🚫 Vous devez être administrateur pour exécuter cette commande.", ephemeral=True)
+
         view = self.create_view()
         embed = self.create_embed()
         await ctx.send(embed=embed, view=view)
