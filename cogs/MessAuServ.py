@@ -4,10 +4,83 @@ from discord.ui import Button, View
 from discord import ButtonStyle, Interaction
 import asyncio
 import random
+import time
 
 class MessageAll(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.last_messages = {}  # Stocke le timestamp du dernier message envoyé par le bot à chaque membre
+
+    @commands.hybrid_command(name="continue_message_all", description="Envoyer un message aux membres qui n'ont pas reçu de message depuis 3 jours.")
+    @commands.has_permissions(administrator=True)
+    async def continue_message_all(self, ctx, title: str, content: str, footer: str, color: str = "#3498db"):
+        embed = self.create_embed(title, content, footer, color)
+        buttons = self.create_buttons(ctx, embed)
+
+        preview_msg = await ctx.send(
+            embed=embed,
+            content="**Prévisualisation** : ajustez avant l'envoi :",
+            view=buttons,
+            ephemeral=True
+        )
+
+        buttons.preview_msg = preview_msg
+        buttons.embed = embed
+
+    def create_embed(self, title: str, content: str, footer: str, color: str):
+        try:
+            embed_color = int(color.strip("#"), 16)
+        except ValueError:
+            embed_color = 0x3498db
+        embed = discord.Embed(title=title, description=content, color=embed_color)
+        embed.set_footer(text=footer)
+        return embed
+
+    def create_buttons(self, ctx, embed):
+        buttons = View(timeout=300)
+
+        confirm_button = Button(label="Confirmer", style=ButtonStyle.green)
+        cancel_button = Button(label="Annuler", style=ButtonStyle.red)
+
+        async def confirm_callback(interaction: Interaction):
+            if interaction.user.id != ctx.author.id:
+                await interaction.response.send_message("❌ Vous ne pouvez pas confirmer cette action.", ephemeral=True)
+                return
+            await interaction.response.edit_message(content="📨 Début de l'envoi... Cela peut prendre du temps.", view=None)
+            failed_members = await self.send_to_eligible_members(ctx.guild, embed)
+            await ctx.send(f"✅ Message envoyé aux membres éligibles.\nMembres inaccessibles : {failed_members}")
+
+        async def cancel_callback(interaction: Interaction):
+            if interaction.user.id != ctx.author.id:
+                await interaction.response.send_message("❌ Vous ne pouvez pas annuler cette action.", ephemeral=True)
+                return
+            await interaction.response.edit_message(content="❌ Envoi annulé.", view=None)
+
+        confirm_button.callback = confirm_callback
+        cancel_button.callback = cancel_callback
+
+        buttons.add_item(confirm_button)
+        buttons.add_item(cancel_button)
+
+        return buttons
+
+    async def send_to_eligible_members(self, guild, embed):
+        failed_members = []
+        now = time.time()
+        
+        for member in guild.members:
+            if not member.bot:
+                last_sent = self.last_messages.get(member.id, 0)
+                if now - last_sent >= 259200:  # 3 jours en secondes
+                    try:
+                        await member.send(embed=embed)
+                        self.last_messages[member.id] = now  # Met à jour le timestamp du dernier message
+                        await asyncio.sleep(random.randint(10, 15))
+                    except discord.Forbidden:
+                        continue
+                    except Exception:
+                        failed_members.append(str(member))
+        return len(failed_members)
 
     @commands.hybrid_command(name="message_all", description="Envoyer un message à tout le monde dans le serveur.")
     @commands.has_permissions(administrator=True)
