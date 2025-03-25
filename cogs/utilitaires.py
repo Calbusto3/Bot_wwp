@@ -383,6 +383,85 @@ class Utilitaire(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Une erreur s'est produite : {str(e)}")
 
+
+    async def kick_members(self, ctx, members_to_kick, delay=5):
+        """Kick les membres donnés avec un délai entre chaque kick."""
+        kicked_members = []
+        for member in members_to_kick:
+            try:
+                # Envoi du MP
+                embed_mp = discord.Embed(
+                    title="🚪 Vous avez été expulsé !",
+                    description=f"Vous avez été expulsé du serveur **{ctx.guild.name}**.",
+                    color=discord.Color.red()
+                )
+                embed_mp.set_footer(text="Contactez un modérateur si nécessaire.")
+                
+                try:
+                    await member.send(embed=embed_mp)
+                except discord.Forbidden:
+                    pass  # Impossible d'envoyer le MP, on ignore l'erreur
+                
+                # Kick du membre
+                await member.kick(reason="Expulsion en masse")
+                kicked_members.append(f"{member.name}#{member.discriminator}")
+                await asyncio.sleep(delay)  # Attente pour éviter la détection de raid
+            except Exception as e:
+                await ctx.send(f"❌ Impossible d'expulser {member.mention}: {e}")
+
+        return kicked_members
+
+    @commands.hybrid_command(name="kick_all", description="Expulse tous les membres sauf ceux ayant un rôle ignoré.")
+    @commands.has_permissions(kick_members=True)
+    async def kick_all(self, ctx, roles_ignores: commands.Greedy[discord.Role] = None):
+        """Expulse tous les membres du serveur sauf ceux ayant un rôle ignoré."""
+        roles_ignores = roles_ignores or []
+        members_to_kick = [m for m in ctx.guild.members if not any(role in m.roles for role in roles_ignores) and not m.bot]
+
+        if not members_to_kick:
+            await ctx.send("⚠️ Aucun membre à expulser.")
+            return
+
+        await ctx.send(f"🚨 Expulsion de {len(members_to_kick)} membres en cours...")
+
+        kicked_members = await self.kick_members(ctx, members_to_kick)
+
+        embed_bilan = discord.Embed(
+            title="✅ Expulsion terminée",
+            description=f"{len(kicked_members)} membres ont été expulsés.",
+            color=discord.Color.green()
+        )
+        embed_bilan.add_field(name="Membres expulsés :", value="\n".join(kicked_members) if kicked_members else "Aucun", inline=False)
+        await ctx.send(embed=embed_bilan)
+
+    @commands.hybrid_command(name="kick_vague", description="Expulse un certain nombre de membres aléatoires.")
+    @commands.has_permissions(kick_members=True)
+    async def kick_vague(self, ctx, nombre: int, roles_ignores: commands.Greedy[discord.Role] = None):
+        """Expulse un nombre aléatoire de membres, en évitant les rôles spécifiés."""
+        roles_ignores = roles_ignores or []
+        members_to_kick = [m for m in ctx.guild.members if not any(role in m.roles for role in roles_ignores) and not m.bot]
+
+        if not members_to_kick or nombre <= 0:
+            await ctx.send("⚠️ Aucun membre à expulser.")
+            return
+
+        if nombre > len(members_to_kick):
+            nombre = len(members_to_kick)  # On limite au max disponible
+
+        members_to_kick = random.sample(members_to_kick, nombre)
+
+        await ctx.send(f"🎲 Expulsion aléatoire de {nombre} membres en cours...")
+
+        kicked_members = await self.kick_members(ctx, members_to_kick)
+
+        embed_bilan = discord.Embed(
+            title="✅ Expulsion terminée",
+            description=f"{len(kicked_members)} membres ont été expulsés aléatoirement.",
+            color=discord.Color.orange()
+        )
+        embed_bilan.add_field(name="Membres expulsés :", value="\n".join(kicked_members) if kicked_members else "Aucun", inline=False)
+        await ctx.send(embed=embed_bilan)
+
     @commands.hybrid_command(name="kick", description="Expulse un membre du serveur.")
     @commands.has_permissions(kick_members=True)
     async def kick(self, ctx, membre: discord.Member, *, raison: str = "Aucune raison spécifiée."):

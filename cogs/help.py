@@ -23,7 +23,7 @@ class InfoCommand(commands.Cog):
             color=discord.Color.blue()
         )
         embed.add_field(name="Créateur du bot", value="@.Calbusto (ID: 1033834366822002769)", inline=False)
-        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V3.1.1)", inline=False)
+        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V4.5.1)", inline=False)
         embed.add_field(name="Sélectionnez une commande", value="Utilisez le menu déroulant ci-dessous pour obtenir des informations sur une commande.", inline=False)
 
         # Création du sélecteur pour choisir une commande
