@@ -1,8 +1,8 @@
 import discord
 import json
 from discord.ext import commands
+from discord import app_commands, ButtonStyle, Interaction
 from discord.ui import Button, View, Select
-from discord import ButtonStyle, Interaction
 
 class SetupAccueil(commands.Cog):
     def __init__(self, bot):
@@ -22,14 +22,15 @@ class SetupAccueil(commands.Cog):
         with open(self.config_file, "w", encoding="utf-8") as file:
             json.dump(self.config, file, indent=4)
 
-    async def run_setup_accueil(self, ctx):
-        """Permet d'ouvrir la configuration de l'accueil, accessible uniquement via /config et /setup."""
-        if not ctx.author.guild_permissions.administrator:
-            return await ctx.send("🚫 Vous devez être administrateur pour exécuter cette commande.", ephemeral=True)
+    @app_commands.command(name="setup_accueil", description="Configurer les messages d'accueil")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def setup_accueil(self, interaction: Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("🚫 Vous devez être administrateur pour exécuter cette commande.", ephemeral=True)
 
         view = self.create_view()
         embed = self.create_embed()
-        await ctx.send(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     def create_embed(self):
         status = "✅ **Activé**" if self.config["active"] else "❌ **Désactivé**"
@@ -52,12 +53,12 @@ class SetupAccueil(commands.Cog):
             discord.SelectOption(label=title, value=title) for title in self.config["messages"]
         ]) if self.config["messages"] else None
 
-        async def toggle_callback(interaction):
+        async def toggle_callback(interaction: Interaction):
             self.config["active"] = not self.config["active"]
             self.save_config()
             await interaction.response.edit_message(embed=self.create_embed(), view=self.create_view())
 
-        async def add_callback(interaction):
+        async def add_callback(interaction: Interaction):
             await interaction.response.send_message("✏️ Entrez le titre du message :", ephemeral=True)
             def check(msg): return msg.author == interaction.user and msg.channel == interaction.channel
             title_msg = await self.bot.wait_for("message", check=check)
@@ -72,7 +73,7 @@ class SetupAccueil(commands.Cog):
             await interaction.followup.send("✅ Message ajouté !", ephemeral=True)
             await interaction.message.edit(embed=self.create_embed(), view=self.create_view())
 
-        async def delete_callback(interaction):
+        async def delete_callback(interaction: Interaction):
             if not self.config["messages"]:
                 await interaction.response.send_message("⚠️ Aucun message à supprimer.", ephemeral=True)
                 return
@@ -88,7 +89,7 @@ class SetupAccueil(commands.Cog):
             await interaction.followup.send("✅ Message supprimé !", ephemeral=True)
             await interaction.message.edit(embed=self.create_embed(), view=self.create_view())
 
-        async def select_callback(interaction):
+        async def select_callback(interaction: Interaction):
             title = interaction.data["values"][0]
             message = self.config["messages"].get(title, "Message introuvable.")
             await interaction.response.send_message(f"**{title}**\n{message}", ephemeral=True)
