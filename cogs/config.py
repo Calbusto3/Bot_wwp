@@ -18,13 +18,16 @@ class Config(commands.Cog):
         elif option.lower() == "setup_accueil":
             cog = self.bot.get_cog("SetupAccueil")
             if cog:
-                await cog.run_setup_accueil(ctx)  # Appel mis à jour
+                await cog.run_setup_accueil(ctx)
             else:
                 await ctx.send("⚠️ Le module de configuration d'accueil est introuvable.")
         elif option.lower() == "setup_autorole":
             cog = self.bot.get_cog("AutoRole")
             if cog:
-                await cog.setup_auto_role(ctx.interaction)  # Correction de l'appel
+                if ctx.interaction:
+                    await cog.setup_auto_role(ctx.interaction)
+                else:
+                    await cog.setup_auto_role(ctx)
             else:
                 await ctx.send("⚠️ Le module de configuration des autorôles est introuvable.")
 
@@ -55,10 +58,10 @@ class Config(commands.Cog):
             ]
         )
         
-        async def select_callback(interaction: discord.Interaction):
+        async def select_callback(interaction):
             await interaction.response.defer()
             option = select.values[0]
-            await self.config(ctx, option)
+            await self.config(await self.bot.get_context(interaction), option)
         
         select.callback = select_callback
         view.add_item(select)
