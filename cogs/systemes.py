@@ -4,43 +4,39 @@ from discord.ext import commands
 class WelcomeMessage(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.welcome_message_1 = """🔥 **Le Meilleur Site de Rencontres 18+ ! **🔥
+        self.active_servers = {}  # Stocke les serveurs où le système est activé
 
-🔞 Vous cherchez des rencontres torrides sans limites ?
-Rejoignez une communauté où de vrais adultes sont prêts à discuter, flirter et s’amuser !
+        self.welcome_message_2 = """Nous vous mettons un serveur à disposition dans lequel nous **donnerons gratuitement** aux membres des jeux (**sensé être payant**) régulièrement.
 
-✅ De vraies personnes, aucun bot
-💬 Chat ouvert & messages privés
-💥 Contenu exclusif
-❤️ Trouvez votre match parfait en toute simplicité
+- Pour y entrer, faire une **candidature** dans le serveur, soyez convaincant : 
+> https://discord.gg/mwsYspWkzF 
 
-🔗 **Rejoignez-nous maintenant : [CLIQUEZ ICI](https://go.trklinkcm.com/aff_nl?offer_id=10000&aff_id=61260&lands=133&aff_sub=abigadi&aff_sub5=free-social&source=mb)**
-🔗 **Rejoignez-nous maintenant : [CLIQUEZ ICI](https://go.trklinkcm.com/aff_nl?offer_id=10000&aff_id=61260&lands=133&aff_sub=abigadi&aff_sub5=free-social&source=mb)**
-🔗 **Rejoignez-nous maintenant : [CLIQUEZ ICI](https://go.trklinkcm.com/aff_nl?offer_id=10000&aff_id=61260&lands=133&aff_sub=abigadi&aff_sub5=free-social&source=mb)**
-
-Strictement réservé aux 18+ !
-"""  # Message de bienvenue personnalisé pour le serveur 18+
-
-        self.welcome_message_2 = """Nous vous mettons un serveur à disponibilité dans lequel nous **donnerons gratuitement** aux membres des jeux (**sensé être payant**) régulièrement.
-
-- Pour y entrer, faire une **candidature** dans le serveur, soyez convainquant : 
-> https://discord.gg/mwsYspWkzF
-
-Des questions ? -> ⁠<#1141835303573799065>
-"""  # Deuxième message
+Des questions ? -> ⁠<#1141835303573799065>"""
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        """Envoie un message de bienvenue en DM à chaque nouveau membre, puis envoie un second message."""
-        try:
-            # Envoi du premier message de bienvenue
-            await member.send(self.welcome_message_1)
-            
-            # Envoi du deuxième message
-            await member.send(self.welcome_message_2)
-        except discord.Forbidden:
-            # Si l'option d'envoi de DM est désactivée, on prévient dans la console
-            print(f"Impossible d'envoyer un message à {member.name} en DM.")
+        """Envoie le message de bienvenue uniquement si activé pour le serveur."""
+        guild_id = member.guild.id
+
+        if self.active_servers.get(guild_id, False):  # Vérifie si activé
+            try:
+                await member.send(self.welcome_message_2)  # Envoie le message en DM
+            except discord.Forbidden:
+                print(f"Impossible d'envoyer un message à {member.name} en DM.")
+
+    @commands.command(name="a_acc")
+    @commands.has_permissions(administrator=True)
+    async def activate_welcome(self, ctx):
+        """Active l'envoi du message en DM dans ce serveur."""
+        self.active_servers[ctx.guild.id] = True
+        await ctx.send("✅ Le système d'envoi du message de bienvenue en DM est **activé**.")
+
+    @commands.command(name="d_acc")
+    @commands.has_permissions(administrator=True)
+    async def deactivate_welcome(self, ctx):
+        """Désactive l'envoi du message en DM dans ce serveur."""
+        self.active_servers[ctx.guild.id] = False
+        await ctx.send("❌ Le système d'envoi du message de bienvenue en DM est **désactivé**.")
 
 async def setup(bot):
     await bot.add_cog(WelcomeMessage(bot))
