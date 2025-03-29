@@ -16,8 +16,8 @@ class Utilitaire(commands.Cog):
         self.bot = bot
 
         # Liste des rôles selon le genre
-        self.roles_homme = [1248044201959227414, 1248282343718780979]  # Remplace par tes IDs de rôles homme
-        self.roles_femme = [1248044201959227414, 1248282244779343992]  # Remplace par tes IDs de rôles femme
+        self.roles_homme = [1248044201959227414, 1248282343718780979, 1354569448836567162]  # Remplace par tes IDs de rôles homme
+        self.roles_femme = [1248044201959227414, 1248282244779343992, 1354569448836567162]  # Remplace par tes IDs de rôles femme
 
         # ID du salon pour annoncer la vérification
         self.salon_annonce_id = 1353301864049016833  # Remplace par l'ID du salon d'annonce

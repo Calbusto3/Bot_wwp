@@ -42,8 +42,11 @@ Des questions ? -> ⁠<#1141835303573799065>"""
         await ctx.send("❌ Le système d'envoi du message de bienvenue en DM est **désactivé**.")
 
 
-    @commands.command(name="faituntimelessde")
+    @commands.command()
+    @commands.has_role(1145807576353742908)  # Vérifie si l'utilisateur a le rôle Modérateur
     async def faituntimelessde(self, ctx, duration: str):
+    # Code de la commande ici...
+
         """Génère un timestamp Discord et l'affiche en embed + DM au membre."""
         unit_mapping = {"s": 1, "m": 60, "h": 3600, "j": 86400}
 
@@ -75,7 +78,7 @@ Des questions ? -> ⁠<#1141835303573799065>"""
         try:
             embed_dm = discord.Embed(
                 title="Tien au cas où",
-                description=f"Voici le code du timestamp que vous pouvez copier :\n```\n<t:{target_time}:R>\n```",
+                description=f"Voici le code du timestamp que tu peux copier si jamais tu veux l'utilisez toi même, chiao :\n```\n<t:{target_time}:R>\n```",
                 color=discord.Color.green()
             )
             await ctx.author.send(embed=embed_dm)
