@@ -43,6 +43,7 @@ class InfoCommand(commands.Cog):
                 discord.SelectOption(label="/mp", description="Envoyer un message privé à un membre", value="mp"),
                 discord.SelectOption(label="/staff", description="Mettre un membre staff", value="staff"),
                 discord.SelectOption(label="/vérifier", description="vérifier un membre", value="vérifier"),
+                discord.SelectOption(label="+faituntimeless", description="lancer un timetamp", value="faituntimelessde"),
             ]
 
         )
@@ -50,15 +51,27 @@ class InfoCommand(commands.Cog):
         # Fonction de réponse pour le sélecteur
         async def select_callback(interaction: discord.Interaction):
             selected_value = select.values[0]
+
+            if selected_value == "faituntimelessde":
+                info_embed = discord.Embed(
+                    title="faituntimelessde",
+                    description="",
+                    color=discord.Color.red()
+                )
+                info_embed.add_field(name="Usage", value="+faituntimelessde [nombre][unité]", inline=False)
+                info_embed.add_field(name="Exemple", value="+faituntimelessde 10s/10m/1h/1j", inline=False)
+                info_embed.add_field(name="Permission requise", value="modérateur", inline=False)
+                info_embed.add_field(name="Utilisable avec préfixe (+)", value="uniquement", inline=False)
+                info_embed.add_field(name="Autre commande(s) du style", value="non", inline=False)            
             
-            if selected_value == "vérifier":
+            elif selected_value == "vérifier":
                 info_embed = discord.Embed(
                     title="vérifier",
                     description="vérifier un membre, ce qui lui donne automatiquement les rôles de vérifications en fonction du genre\net fait un annonce dans le salon #vérifiés.\nun message mp lui est envoyé pour le/la félicité de la vérification,\ndans ce message se trouve le code de vérification unique aussi disponible au staff..",
                     color=discord.Color.red()
                 )
                 info_embed.add_field(name="Usage", value="/vérifier [''membre''] [''genre'']", inline=False)
-                info_embed.add_field(name="Exemple", value="/staff @utilisateur home", inline=False)
+                info_embed.add_field(name="Exemple", value="/vérifier @utilisateur home", inline=False)
                 info_embed.add_field(name="Permission requise", value="modérateur", inline=False)
                 info_embed.add_field(name="Utilisable avec préfixe (+)", value="oui", inline=False)
                 info_embed.add_field(name="Autre commande(s) du style", value="fake", inline=False)
