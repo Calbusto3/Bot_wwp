@@ -174,7 +174,7 @@ Si tu as des questions, n’hésite pas à nous rejoindre dans ⁠<#114183530357
 
         # Envoi du message dans le salon
         embed = discord.Embed(
-            title="à ton servie",
+            title="à ton service",
             description=f"{discord_timestamp}",
             color=discord.Color.blue()
         )
