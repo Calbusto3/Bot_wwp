@@ -152,6 +152,7 @@ Si tu as des questions, n’hésite pas à nous rejoindre dans ⁠<#114183530357
         await ctx.send(embed=embed)
 
     @commands.command(name="faituntimelessde")
+    @commands.has_permissions(manage_messages=True)
     async def faituntimelessde(self, ctx, duration: str):
         """Génère un timestamp Discord et l'affiche en embed + DM au membre."""
         unit_mapping = {"s": 1, "m": 60, "h": 3600, "j": 86400}
@@ -184,7 +185,7 @@ Si tu as des questions, n’hésite pas à nous rejoindre dans ⁠<#114183530357
         try:
             embed_dm = discord.Embed(
                 title="Regarde",
-                description=f"si tu veux utiliser le timetamp que t'as généré, utilise ce code :\n```\n<t:{target_time}:R>\n```",
+                description=f"si tu veux utiliser le timetamp que t'as généré ({discord_timestamp}), utilise ce code :\n```\n<t:{target_time}:R>\n```",
                 color=discord.Color.green()
             )
             await ctx.author.send(embed=embed_dm)
