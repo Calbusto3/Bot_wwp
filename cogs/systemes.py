@@ -192,5 +192,6 @@ Si tu as des questions, n’hésite pas à nous rejoindre dans ⁠<#114183530357
         except discord.Forbidden:
             await ctx.send("impossible d'envoyer le timestamp en MP.")
 
+
 async def setup(bot):
     await bot.add_cog(ServerBot(bot))
