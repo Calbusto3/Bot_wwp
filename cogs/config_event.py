@@ -286,7 +286,7 @@ class ConfigEventView(View):
             )
             for index, config in enumerate(self.cog.configurations[guild_id])
         ]
-        select = Select(placeholder="Choisissez une configuration", options=options)
+        select = Select(placeholder="Choisissez une configuration..", options=options)
 
         async def select_callback(interaction: discord.Interaction):
             config_index = int(select.values[0])
