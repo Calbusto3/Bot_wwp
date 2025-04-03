@@ -19,7 +19,7 @@ class InfoCommand(commands.Cog):
         # Création de l'embed de base
         embed = discord.Embed(
             title="Informations sur le Bot",
-            description="Je suis le bot officiel de World War Porn, voici quelques informations à mon sujet.",
+            description="Je suis le bot officiel de World War Porn, voici quelques informations à mon sujet.\n**-> Si vous cherchez des informations sur une commande qui figure pas là dessous, demandez directement à @.calbusto (`1033834366822002769`)**",
             color=discord.Color.blue()
         )
         embed.add_field(name="Créateur du bot", value="@.Calbusto (ID: 1033834366822002769)", inline=False)

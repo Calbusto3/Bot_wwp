@@ -31,6 +31,13 @@ class Utilitaire(commands.Cog):
         self.sanctions_file = 'sanctions.json'
         self.load_sanctions()
 
+        self.bot = bot
+        self.roles_homme = [1234567890]  # Remplace avec les vrais IDs
+        self.roles_femme = [9876543210]  # Remplace avec les vrais IDs
+        self.salon_annonce_id = 1122334455  # ID du salon d'annonce
+        self.salon_archive_id = 5544332211  # ID du salon d'archives
+        self.generated_codes = set()
+
 
     def load_sanctions(self):
         if os.path.exists(self.sanctions_file):
@@ -129,22 +136,7 @@ class Utilitaire(commands.Cog):
                 color=discord.Color.blue()
             )
             await ctx.send(embed=embed_vide)
-            
-            
-import discord
-import random
-import string
-from discord.ext import commands
-from discord.ui import View, Select
 
-class Verification(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.roles_homme = [1234567890]  # Remplace avec les vrais IDs
-        self.roles_femme = [9876543210]  # Remplace avec les vrais IDs
-        self.salon_annonce_id = 1122334455  # ID du salon d'annonce
-        self.salon_archive_id = 5544332211  # ID du salon d'archives
-        self.generated_codes = set()
 
     @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
     @commands.has_permissions(manage_roles=True)

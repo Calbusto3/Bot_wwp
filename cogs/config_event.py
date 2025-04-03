@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from discord.ui import View, Button, Select
-from typing import Optional
 import json
 import os
 
@@ -24,10 +24,23 @@ class ConfigEvent(commands.Cog):
                 return json.load(f)
         return {}
 
-    @commands.command(name="config_event", description="Configurer des événements conditionnels.")
-    @commands.has_permissions(administrator=True)
-    async def config_event(self, ctx):
+    def save_configuration(self, guild_id, action, channel_id, role_id1, role_id2, role_id3):
+        """Ajoute une nouvelle configuration et la sauvegarde."""
+        if guild_id not in self.configurations:
+            self.configurations[guild_id] = []
+        self.configurations[guild_id].append({
+            "action": action,
+            "channel_id": channel_id,
+            "eligible_roles": [role_id1, role_id2],
+            "ignored_roles": [role_id3]
+        })
+        self.save_configurations()
+
+    @app_commands.command(name="config_event", description="Configurer des événements conditionnels.")
+    @app_commands.default_permissions(administrator=True)
+    async def config_event(self, interaction: discord.Interaction):
         """Commande principale pour configurer les événements."""
+        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="⚙️ Configuration des événements",
             description="Utilisez les boutons ci-dessous pour gérer les configurations.",
@@ -38,7 +51,7 @@ class ConfigEvent(commands.Cog):
         embed.add_field(name="Supprimer une configuration", value="Supprimez une configuration existante.", inline=False)
 
         view = ConfigEventView(self)
-        await ctx.send(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     async def execute_action(self, guild_id: int, action: str, channel_id: int, role_id: int, member: discord.Member):
         """Exécute une action configurée si les conditions sont remplies."""
@@ -76,6 +89,15 @@ class ConfigEvent(commands.Cog):
         added_roles = [role for role in after.roles if role not in before.roles]
         for guild_id, configs in self.configurations.items():
             for config in configs:
+                eligible_roles = config.get("eligible_roles", [])
+                ignored_roles = config.get("ignored_roles", [])
+
+                if eligible_roles and not any(role.id in eligible_roles for role in after.roles):
+                    return  # Le membre n'a pas de rôle éligible
+
+                if any(role.id in ignored_roles for role in after.roles):
+                    return  # Le membre a un rôle ignoré
+
                 if config["role_id"] in [role.id for role in added_roles]:
                     await self.execute_action(
                         guild_id=guild_id,
@@ -91,13 +113,13 @@ class ConfigEventView(View):
         self.cog = cog
 
         # Bouton pour ajouter une condition
-        self.add_item(Button(label="Ajouter une condition", style=discord.ButtonStyle.green, custom_id="add_condition"))
+        self.add_item(Button(label="Ajouter une condition", style=discord.ButtonStyle.green, custom_id="add_condition", row=0))
 
         # Bouton pour modifier une configuration
-        self.add_item(Button(label="Modifier une configuration", style=discord.ButtonStyle.blurple, custom_id="modify_config"))
+        self.add_item(Button(label="Modifier une configuration", style=discord.ButtonStyle.blurple, custom_id="modify_config", row=1))
 
         # Bouton pour supprimer une configuration
-        self.add_item(Button(label="Supprimer une configuration", style=discord.ButtonStyle.red, custom_id="delete_config"))
+        self.add_item(Button(label="Supprimer une configuration", style=discord.ButtonStyle.red, custom_id="delete_config", row=2))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Vérifie si l'utilisateur est administrateur."""
@@ -109,6 +131,7 @@ class ConfigEventView(View):
     @discord.ui.button(label="Ajouter une condition", style=discord.ButtonStyle.green)
     async def add_condition(self, interaction: discord.Interaction, button: Button):
         """Ajoute une nouvelle condition."""
+        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="➕ Ajouter une condition",
             description="Sélectionnez une action à effectuer lorsque la condition est remplie.",
@@ -137,6 +160,7 @@ class ConfigEventView(View):
 
     async def select_channel(self, interaction: discord.Interaction, action: str):
         """Permet de sélectionner un salon pour l'action."""
+        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="📢 Sélectionner un salon",
             description="Choisissez le salon où l'action sera effectuée.",
@@ -163,32 +187,38 @@ class ConfigEventView(View):
 
     async def select_roles(self, interaction: discord.Interaction, action: str, channel_id: int):
         """Permet de sélectionner des rôles éligibles ou ignorés."""
+        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="👥 Sélectionner des rôles",
             description="Ajoutez des rôles éligibles ou ignorés pour cette configuration.",
             color=discord.Color.purple()
         )
         select = Select(
-            placeholder="Choisissez un rôle",
+            placeholder="Choisissez des rôles (éligibles ou ignorés)",
             options=[
                 discord.SelectOption(label=role.name, value=str(role.id))
                 for role in interaction.guild.roles
-            ]
+            ],
+            min_values=1,
+            max_values=len(interaction.guild.roles)
         )
 
         async def select_callback(interaction: discord.Interaction):
-            role_id = int(select.values[0])
-            await interaction.response.send_message(f"Rôle sélectionné : <@&{role_id}>", ephemeral=True)
+            role_id1 = int(select.values[0])
+            role_id2 = int(select.values[0])  # Example for multiple roles
+            role_id3 = int(select.values[0])  # Example for ignored roles
+            await interaction.response.send_message(f"Rôles sélectionnés : <@&{role_id1}>, <@&{role_id2}> (éligibles), <@&{role_id3}> (ignorés)", ephemeral=True)
             # Étape suivante : Confirmer la configuration
-            await self.confirm_configuration(interaction, action, channel_id, role_id)
+            await self.confirm_configuration(interaction, action, channel_id, role_id1, role_id2, role_id3)
 
         select.callback = select_callback
         view = View()
         view.add_item(select)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    async def confirm_configuration(self, interaction: discord.Interaction, action: str, channel_id: int, role_id: int):
+    async def confirm_configuration(self, interaction: discord.Interaction, action: str, channel_id: int, role_id1: int, role_id2: int, role_id3: int):
         """Affiche un résumé de la configuration et demande une confirmation."""
+        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="✅ Confirmer la configuration",
             description="Voici un résumé de la configuration que vous avez créée :",
@@ -196,7 +226,8 @@ class ConfigEventView(View):
         )
         embed.add_field(name="Action", value=action, inline=False)
         embed.add_field(name="Salon", value=f"<#{channel_id}>", inline=False)
-        embed.add_field(name="Rôle", value=f"<@&{role_id}>", inline=False)
+        embed.add_field(name="Rôles éligibles", value=f"<@&{role_id1}>, <@&{role_id2}>", inline=False)
+        embed.add_field(name="Rôles ignorés", value=f"<@&{role_id3}>", inline=False)
         embed.set_footer(text="Cliquez sur Confirmer pour enregistrer ou Annuler pour abandonner.")
 
         view = View()
@@ -204,8 +235,7 @@ class ConfigEventView(View):
         # Bouton pour confirmer
         confirm_button = Button(label="Confirmer", style=discord.ButtonStyle.green)
         async def confirm_callback(interaction: discord.Interaction):
-            self.save_configuration(interaction.guild.id, action, channel_id, role_id)
-            self.cog.save_configurations()
+            self.cog.save_configuration(interaction.guild.id, action, channel_id, role_id1, role_id2, role_id3)
             await interaction.response.send_message("✅ Configuration enregistrée avec succès !", ephemeral=True)
         confirm_button.callback = confirm_callback
         view.add_item(confirm_button)
@@ -217,89 +247,6 @@ class ConfigEventView(View):
         cancel_button.callback = cancel_callback
         view.add_item(cancel_button)
 
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    def save_configuration(self, guild_id: int, action: str, channel_id: int, role_id: int):
-        """Enregistre la configuration dans le stockage."""
-        if guild_id not in self.cog.configurations:
-            self.cog.configurations[guild_id] = []
-        self.cog.configurations[guild_id].append({
-            "action": action,
-            "channel_id": channel_id,
-            "role_id": role_id
-        })
-
-    @discord.ui.button(label="Modifier une configuration", style=discord.ButtonStyle.blurple)
-    async def modify_config(self, interaction: discord.Interaction, button: Button):
-        """Modifie une configuration existante."""
-        guild_id = interaction.guild.id
-        if guild_id not in self.cog.configurations or not self.cog.configurations[guild_id]:
-            await interaction.response.send_message("❌ Aucune configuration existante à modifier.", ephemeral=True)
-            return
-
-        embed = discord.Embed(
-            title="⚙️ Modifier une configuration",
-            description="Sélectionnez une configuration à modifier.",
-            color=discord.Color.blurple()
-        )
-        options = [
-            discord.SelectOption(
-                label=f"Action: {config['action']} | Salon: <#{config['channel_id']}> | Rôle: <@&{config['role_id']}>",
-                value=str(index)
-            )
-            for index, config in enumerate(self.cog.configurations[guild_id])
-        ]
-        select = Select(placeholder="Choisissez une configuration", options=options)
-
-        async def select_callback(interaction: discord.Interaction):
-            config_index = int(select.values[0])
-            config = self.cog.configurations[guild_id][config_index]
-            await interaction.response.send_message(
-                f"Configuration sélectionnée : Action: {config['action']}, Salon: <#{config['channel_id']}>, Rôle: <@&{config['role_id']}>",
-                ephemeral=True
-            )
-            # Relancer le processus de modification (action, salon, rôle)
-            await self.add_condition(interaction)
-
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    @discord.ui.button(label="Supprimer une configuration", style=discord.ButtonStyle.red)
-    async def delete_config(self, interaction: discord.Interaction, button: Button):
-        """Supprime une configuration existante."""
-        guild_id = interaction.guild.id
-        if guild_id not in self.cog.configurations or not self.cog.configurations[guild_id]:
-            await interaction.response.send_message("❌ Aucune configuration existante à supprimer.", ephemeral=True)
-            return
-
-        embed = discord.Embed(
-            title="🗑️ Supprimer une configuration",
-            description="Sélectionnez une configuration à supprimer.",
-            color=discord.Color.red()
-        )
-        options = [
-            discord.SelectOption(
-                label=f"Action: {config['action']} | Salon: <#{config['channel_id']}> | Rôle: <@&{config['role_id']}>",
-                value=str(index)
-            )
-            for index, config in enumerate(self.cog.configurations[guild_id])
-        ]
-        select = Select(placeholder="Choisissez une configuration..", options=options)
-
-        async def select_callback(interaction: discord.Interaction):
-            config_index = int(select.values[0])
-            removed_config = self.cog.configurations[guild_id].pop(config_index)
-            self.cog.save_configurations()
-            await interaction.response.send_message(
-                f"✅ Configuration supprimée : Action: {removed_config['action']}, Salon: <#{removed_config['channel_id']}>, Rôle: <@&{removed_config['role_id']}>",
-                ephemeral=True
-            )
-
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 async def setup(bot):
