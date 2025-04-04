@@ -40,7 +40,6 @@ class ConfigEvent(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def config_event(self, interaction: discord.Interaction):
         """Commande principale pour configurer les événements."""
-        await interaction.response.defer(ephemeral=True)
         embed = discord.Embed(
             title="⚙️ Configuration des événements",
             description="Utilisez les boutons ci-dessous pour gérer les configurations.",
@@ -51,22 +50,21 @@ class ConfigEvent(commands.Cog):
         embed.add_field(name="Supprimer une configuration", value="Supprimez une configuration existante.", inline=False)
 
         view = ConfigEventView(self)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)  # Réponse directe
 
-    async def execute_action(self, guild_id: int, action: str, channel_id: int, role_id: int, member: discord.Member):
-        """Exécute une action configurée si les conditions sont remplies."""
+    async def execute_action(self, guild_id: int, action: str, channel_id: int, role_id: int, member: discord.Member, error_channel: discord.TextChannel):
         guild = self.bot.get_guild(guild_id)
         if not guild:
             return
 
         channel = guild.get_channel(channel_id)
         if not channel:
-            print(f"⚠️ Salon introuvable : {channel_id}")
+            await error_channel.send(f"⚠️ Le salon configuré (<#{channel_id}>) n'existe plus.")
             return
 
         role = guild.get_role(role_id)
         if not role:
-            print(f"⚠️ Rôle introuvable : {role_id}")
+            await error_channel.send(f"⚠️ Le rôle configuré (<@&{role_id}>) n'existe plus.")
             return
 
         if role in member.roles:
@@ -104,7 +102,8 @@ class ConfigEvent(commands.Cog):
                         action=config["action"],
                         channel_id=config["channel_id"],
                         role_id=config["role_id"],
-                        member=after
+                        member=after,
+                        error_channel=after.guild.system_channel  # Exemple : salon système
                     )
 
 class ConfigEventView(View):
@@ -131,7 +130,7 @@ class ConfigEventView(View):
     @discord.ui.button(label="Ajouter une condition", style=discord.ButtonStyle.green)
     async def add_condition(self, interaction: discord.Interaction, button: Button):
         """Ajoute une nouvelle condition."""
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True)  # Diffère la réponse
         embed = discord.Embed(
             title="➕ Ajouter une condition",
             description="Sélectionnez une action à effectuer lorsque la condition est remplie.",
@@ -146,17 +145,9 @@ class ConfigEventView(View):
                 discord.SelectOption(label="Réagir à un message", value="react_message")
             ]
         )
-
-        async def select_callback(interaction: discord.Interaction):
-            action = select.values[0]
-            await interaction.response.send_message(f"Action sélectionnée : {action}", ephemeral=True)
-            # Étape suivante : Sélectionner le salon
-            await self.select_channel(interaction, action)
-
-        select.callback = select_callback
         view = View()
         view.add_item(select)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)  # Utilisez followup.send
 
     async def select_channel(self, interaction: discord.Interaction, action: str):
         """Permet de sélectionner un salon pour l'action."""
@@ -204,17 +195,21 @@ class ConfigEventView(View):
         )
 
         async def select_callback(interaction: discord.Interaction):
-            role_id1 = int(select.values[0])
-            role_id2 = int(select.values[0])  # Example for multiple roles
-            role_id3 = int(select.values[0])  # Example for ignored roles
-            await interaction.response.send_message(f"Rôles sélectionnés : <@&{role_id1}>, <@&{role_id2}> (éligibles), <@&{role_id3}> (ignorés)", ephemeral=True)
+            selected_roles = [int(role_id) for role_id in select.values]
+            eligible_roles = selected_roles[:-1]  # Tous sauf le dernier rôle
+            ignored_roles = selected_roles[-1:]  # Dernier rôle comme ignoré
+            await interaction.response.send_message(
+                f"Rôles sélectionnés : {', '.join(f'<@&{role_id}>' for role_id in eligible_roles)} (éligibles), "
+                f"{', '.join(f'<@&{role_id}>' for role_id in ignored_roles)} (ignorés)",
+                ephemeral=True
+            )
             # Étape suivante : Confirmer la configuration
-            await self.confirm_configuration(interaction, action, channel_id, role_id1, role_id2, role_id3)
+            await self.confirm_configuration(interaction, action, channel_id, eligible_roles, ignored_roles)
 
         select.callback = select_callback
         view = View()
         view.add_item(select)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     async def confirm_configuration(self, interaction: discord.Interaction, action: str, channel_id: int, role_id1: int, role_id2: int, role_id3: int):
         """Affiche un résumé de la configuration et demande une confirmation."""

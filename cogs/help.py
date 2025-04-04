@@ -19,11 +19,11 @@ class InfoCommand(commands.Cog):
         # Création de l'embed de base
         embed = discord.Embed(
             title="Informations sur le Bot",
-            description="Je suis le bot officiel de World War Porn, voici quelques informations à mon sujet.\n**-> Si vous cherchez des informations sur une commande qui figure pas là dessous, demandez directement à @.calbusto (`1033834366822002769`)**",
+            description="Je suis le bot officiel de World War Porn, voici quelques informations à mon sujet.\n**-> Si vous cherchez des informations sur une commande qui figure pas là dessous, demandez directement à @.calbusto (`1033834366822002769`).**",
             color=discord.Color.blue()
         )
         embed.add_field(name="Créateur du bot", value="@.Calbusto (ID: 1033834366822002769)", inline=False)
-        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V4.5.2)", inline=False)
+        embed.add_field(name="Date de création du bot", value="29 janvier 2025 (V4.6)", inline=False)
         embed.add_field(name="Sélectionnez une commande", value="Utilisez le menu déroulant ci-dessous pour obtenir des informations sur une commande.", inline=False)
 
         # Création du sélecteur pour choisir une commande
