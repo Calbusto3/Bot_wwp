@@ -650,7 +650,7 @@ class Utilitaire(commands.Cog):
             await ctx.send(f"Une erreur est survenue : {str(e)}")
             
 
-    @app_commands.command(name="staff", description="et préfixe le pseudomettre un membre staff")
+    @app_commands.command(name="staff", description="mettre un membre staff")
     async def staff(self, interaction: discord.Interaction, membre: discord.Member):
         staff_roles = [1145807576353742908, 1134290681490317403, 1248046492091027548]  # Remplace par les ID des rôles staff
         for role_id in staff_roles:

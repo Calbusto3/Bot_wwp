@@ -34,6 +34,16 @@ async def on_ready():
     await bot.tree.sync()  # Synchronise toutes les commandes slash du bot
     print("Commandes slash synchronisées.")
 
+# Commande pour recharger un cog
+@commands.command(name="reload")
+@commands.is_owner()
+async def reload(ctx, extension: str):
+    try:
+        await ctx.bot.reload_extension(f"cogs.{extension}")
+        await ctx.send(f"✅ Cog `{extension}` rechargé avec succès.")
+    except Exception as e:
+        await ctx.send(f"❌ Erreur lors du rechargement du cog `{extension}` : {e}")
+
 # Démarrer le bot avec ton token sécurisé
 keep_alive()
 bot.run(TOKEN)

@@ -459,7 +459,7 @@ class ConfigEventView(View):
             config = configs[selected_id]
             config["enabled"] = not config["enabled"]
             self.cog.save_configurations()
-            await interaction.response.send_message(f"✅ Règle `{selected_id}` {'activée' if config["enabled"] else 'désactivée'} avec succès.", ephemeral=True)
+            await interaction.response.send_message(f"✅ Règle `{selected_id}` {'activée' if config['enabled'] else 'désactivée'} avec succès.", ephemeral=True)
 
         select.callback = select_callback
         view = View()
