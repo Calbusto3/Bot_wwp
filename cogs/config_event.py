@@ -143,6 +143,7 @@ class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
         self.guild_id = guild_id
         self.index = index
 
+        # Menu déroulant pour les actions prédéfinies
         self.action = TextInput(label="Action", default=config.get("action", ""), required=True)
         self.channel_id = TextInput(label="ID du salon", default=str(config.get("channel_id", "")), required=True)
         self.trigger_role = TextInput(label="ID du rôle déclencheur", default=str(config.get("trigger_role", "")), required=True)
@@ -158,6 +159,12 @@ class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
     async def on_submit(self, interaction: discord.Interaction):
         guild = interaction.guild
 
+        # Validation de l'action
+        valid_actions = ["send_message", "send_file", "send_emoji", "react_message"]
+        if self.action.value.strip() not in valid_actions:
+            await interaction.response.send_message("❌ Action invalide. Choisissez parmi : send_message, send_file, send_emoji, react_message.", ephemeral=True)
+            return
+
         # Vérification du salon
         channel = guild.get_channel(int(self.channel_id.value.strip()))
         if not channel:
@@ -171,7 +178,7 @@ class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
             await interaction.response.send_message("❌ Un ou plusieurs rôles spécifiés sont introuvables.", ephemeral=True)
             return
 
-        # Sauvegarde de la configuration
+        # Gestion de l'ajout ou de la modification
         updated_config = {
             "action": self.action.value.strip(),
             "channel_id": int(self.channel_id.value.strip()),
@@ -179,7 +186,10 @@ class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
             "eligible_roles": [role.id for role in eligible_roles],
             "ignored_roles": [role.id for role in ignored_roles]
         }
-        self.cog.update_configuration(self.guild_id, self.index, updated_config)
+        if self.index == -1:
+            self.cog.save_configuration(self.guild_id, **updated_config)
+        else:
+            self.cog.update_configuration(self.guild_id, self.index, updated_config)
 
         embed = discord.Embed(
             title="✅ Configuration ajoutée/modifiée",
@@ -287,19 +297,18 @@ class ConfigEventView(View):
             confirmation_view.add_item(Button(label="Confirmer", style=discord.ButtonStyle.red, custom_id="confirm_delete", row=0))
             confirmation_view.add_item(Button(label="Annuler", style=discord.ButtonStyle.green, custom_id="cancel_delete", row=1))
 
+            confirmation_view.get_item_by_id("confirm_delete").callback = lambda i: self.confirm_delete(i, guild_id, selected_index)
+            confirmation_view.get_item_by_id("cancel_delete").callback = self.cancel_delete
+
             await interaction.response.send_message(embed=confirmation_embed, view=confirmation_view, ephemeral=True)
 
-            async def confirm_delete(interaction: discord.Interaction):
-                del self.cog.configurations[guild_id][selected_index]
-                self.cog.save_configurations()
+        async def confirm_delete(self, interaction: discord.Interaction, guild_id: str, selected_index: int):
+            del self.cog.configurations[guild_id][selected_index]
+            self.cog.save_configurations()
+            await interaction.response.send_message("✅ Configuration supprimée avec succès.", ephemeral=True)
 
-                await interaction.response.send_message("✅ Configuration supprimée avec succès.", ephemeral=True)
-
-            async def cancel_delete(interaction: discord.Interaction):
-                await interaction.response.send_message("❌ Suppression annulée.", ephemeral=True)
-
-            confirmation_view.get_item_by_id("confirm_delete").callback = confirm_delete
-            confirmation_view.get_item_by_id("cancel_delete").callback = cancel_delete
+        async def cancel_delete(self, interaction: discord.Interaction):
+            await interaction.response.send_message("❌ Suppression annulée.", ephemeral=True)
 
         select.callback = select_callback
         await interaction.response.send_message("Sélectionnez une configuration à supprimer.", view=View(select), ephemeral=True)
