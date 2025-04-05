@@ -430,8 +430,8 @@ class ConfigEventView(View):
         for config_id, config in configs.items():
             embed.add_field(
                 name=f"🟢 Règle `{config_id}`",
-                value=f"**Type** : {config.get('type', 'ajout')}\n"
-                      f"**Déclencheur** : <@&{config['trigger_role']}>\n"
+                value=f"**Type** : {config['type'].capitalize()}\n"
+                      f"**Déclencheur** : <@&{config['role_id']}>\n"
                       f"**Action** : `{config['action']}`\n"
                       f"**Salon** : <#{config['channel_id']}>\n"
                       f"**Statut** : {'✅ Activée' if config['enabled'] else '❌ Désactivée'}",
