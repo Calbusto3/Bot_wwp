@@ -160,6 +160,31 @@ class ConfigEvent(commands.Cog):
         for role in lost_roles:
             await self.handle_role_event(member=after, role=role, event_type="perte")
 
+    async def modify_rule(self, interaction: discord.Interaction):
+        guild_id = str(interaction.guild.id)
+        configs = self.configurations.get(guild_id, {})
+
+        if not configs:
+            await interaction.response.send_message("📭 Aucune règle à modifier.", ephemeral=True)
+            return
+
+        options = [
+            discord.SelectOption(label=f"Règle `{config_id}`", value=config_id)
+            for config_id in configs
+        ]
+        select = discord.ui.Select(placeholder="Choisissez une règle à modifier", options=options)
+
+        async def select_callback(interaction: discord.Interaction):
+            selected_id = select.values[0]
+            config = configs[selected_id]
+            modal = EditConfigModal(self, guild_id, selected_id, config)
+            await interaction.response.send_modal(modal)
+
+        select.callback = select_callback
+        view = View()
+        view.add_item(select)
+        await interaction.response.send_message("Sélectionnez une règle à modifier :", view=view, ephemeral=True)
+
 class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
     def __init__(self, cog: ConfigEvent, guild_id: str, index: int, config: dict):
         super().__init__()
@@ -285,186 +310,36 @@ class ConfigEventView(View):
     def __init__(self, cog):
         super().__init__(timeout=180)
         self.cog = cog
-        self.add_item(Button(label="Ajouter une condition", style=discord.ButtonStyle.green, custom_id="config_event_add_condition", row=0))
-        self.add_item(Button(label="Modifier une configuration", style=discord.ButtonStyle.blurple, custom_id="config_event_modify_config", row=1))
-        self.add_item(Button(label="Supprimer une configuration", style=discord.ButtonStyle.red, custom_id="config_event_delete_config", row=2))
-        self.add_item(Button(label="Voir les configurations", style=discord.ButtonStyle.gray, custom_id="config_event_view_configs", row=3))
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ Vous devez être administrateur pour utiliser cette commande.", ephemeral=True)
-            return False
-        return True
-
-    @discord.ui.button(label="Ajouter une condition", style=discord.ButtonStyle.green)
-    async def add_condition(self, interaction: discord.Interaction, button: Button):
-        """Ajoute une nouvelle condition via une modale."""
-        modal = EditConfigModal(self.cog, str(interaction.guild.id), -1, {})
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="Voir les configurations", style=discord.ButtonStyle.gray, custom_id="view_configs")
-    async def view_configurations(self, interaction: discord.Interaction, button: Button):
-        guild_id = str(interaction.guild.id)
-        configs = self.cog.configurations.get(guild_id, [])
-
-        if not configs:
-            await interaction.response.send_message("📭 Aucune configuration trouvée pour ce serveur.", ephemeral=True)
-            return
-
-        embed = discord.Embed(
-            title="📋 Configurations existantes",
-            description=f"Total : {len(configs)} configurations",
-            color=discord.Color.gold()
+        # Menu déroulant pour les actions principales
+        select = Select(
+            placeholder="Choisissez une action...",
+            options=[
+                discord.SelectOption(label="➕ Ajouter une règle", value="add_rule"),
+                discord.SelectOption(label="📝 Modifier une règle", value="modify_rule"),
+                discord.SelectOption(label="🗑️ Supprimer une règle", value="delete_rule"),
+                discord.SelectOption(label="✅/❌ Activer/Désactiver une règle", value="toggle_rule"),
+                discord.SelectOption(label="🧾 Voir les règles", value="view_rules"),
+            ]
         )
+        select.callback = self.handle_select
+        self.add_item(select)
 
-        options = [
-            discord.SelectOption(label=f"Règle #{i+1}: {config['action']}", value=str(i))
-            for i, config in enumerate(configs)
-        ]
-        select = discord.ui.Select(placeholder="Sélectionnez une configuration", options=options)
+    async def handle_select(self, interaction: discord.Interaction):
+        """Gère les actions sélectionnées dans le menu déroulant."""
+        selected_action = interaction.data["values"][0]
 
-        async def select_callback(interaction: discord.Interaction):
-            selected_index = int(select.values[0])
-            config = configs[selected_index]
-            modal = EditConfigModal(self.cog, guild_id, selected_index, config)
+        if selected_action == "add_rule":
+            modal = AddRuleModal(self.cog)
             await interaction.response.send_modal(modal)
-
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    @discord.ui.button(label="Supprimer une configuration", style=discord.ButtonStyle.red, custom_id="delete_config")
-    async def delete_configuration(self, interaction: discord.Interaction, button: Button):
-        guild_id = str(interaction.guild.id)
-        configs = self.cog.configurations.get(guild_id, [])
-
-        if not configs:
-            await interaction.response.send_message("❌ Aucune configuration à supprimer.", ephemeral=True)
-            return
-
-        # Création d'un sélecteur pour la suppression
-        options = [
-            discord.SelectOption(label=f"Règle #{i+1}: {config['action']}", value=str(i))
-            for i, config in enumerate(configs)
-        ]
-        select = discord.ui.Select(placeholder="Sélectionnez une configuration à supprimer", options=options)
-
-        async def select_callback(interaction: discord.Interaction):
-            selected_index = int(select.values[0])
-            config_to_delete = configs[selected_index]
-
-            # Demander une confirmation avant suppression
-            confirmation_embed = discord.Embed(
-                title="❌ Confirmation de suppression",
-                description=f"Êtes-vous sûr de vouloir supprimer la configuration suivante :\n\n"
-                            f"**Action** : `{config_to_delete['action']}`\n"
-                            f"**Déclencheur** : <@&{config_to_delete['trigger_role']}>\n"
-                            f"**Salon** : <#{config_to_delete['channel_id']}>\n"
-                            f"**Éligibles** : {', '.join(f'<@&{r}>' for r in config_to_delete['eligible_roles']) or 'Aucun'}\n"
-                            f"**Ignorés** : {', '.join(f'<@&{r}>' for r in config_to_delete['ignored_roles']) or 'Aucun'}",
-                color=discord.Color.red()
-            )
-            confirmation_view = View()
-
-            # Boutons avec callbacks
-            button_confirm = Button(label="Confirmer", style=discord.ButtonStyle.red)
-            button_cancel = Button(label="Annuler", style=discord.ButtonStyle.green)
-
-            async def confirm_callback(i: discord.Interaction):
-                del self.cog.configurations[guild_id][selected_index]
-                self.cog.save_configurations()
-                await i.response.send_message("✅ Configuration supprimée avec succès.", ephemeral=True)
-
-            async def cancel_callback(i: discord.Interaction):
-                await i.response.send_message("❌ Suppression annulée.", ephemeral=True)
-
-            button_confirm.callback = confirm_callback
-            button_cancel.callback = cancel_callback
-
-            confirmation_view.add_item(button_confirm)
-            confirmation_view.add_item(button_cancel)
-
-            await interaction.response.send_message(embed=confirmation_embed, view=confirmation_view, ephemeral=True)
-
-    @discord.ui.button(label="Modifier une règle", style=discord.ButtonStyle.blurple)
-    async def modify_rule(self, interaction: discord.Interaction, button: Button):
-        guild_id = str(interaction.guild.id)
-        configs = self.cog.configurations.get(guild_id, {})
-
-        if not configs:
-            await interaction.response.send_message("📭 Aucune règle à modifier.", ephemeral=True)
-            return
-
-        options = [
-            discord.SelectOption(label=f"Règle `{config_id}`", value=config_id)
-            for config_id in configs
-        ]
-        select = discord.ui.Select(placeholder="Choisissez une règle à modifier", options=options)
-
-        async def select_callback(interaction: discord.Interaction):
-            selected_id = select.values[0]
-            config = configs[selected_id]
-            modal = EditConfigModal(self.cog, guild_id, selected_id, config)
-            await interaction.response.send_modal(modal)
-
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
-        await interaction.response.send_message("Sélectionnez une règle à modifier :", view=view, ephemeral=True)
-
-    @discord.ui.button(label="Voir les règles", style=discord.ButtonStyle.gray)
-    async def view_rules(self, interaction: discord.Interaction, button: Button):
-        guild_id = str(interaction.guild.id)
-        configs = self.cog.configurations.get(guild_id, {})
-
-        if not configs:
-            await interaction.response.send_message("📭 Aucune règle configurée pour ce serveur.", ephemeral=True)
-            return
-
-        embed = discord.Embed(
-            title="📋 Règles configurées",
-            description="Voici la liste des règles actuelles :",
-            color=discord.Color.gold()
-        )
-        for config_id, config in configs.items():
-            embed.add_field(
-                name=f"🟢 Règle `{config_id}`",
-                value=f"**Type** : {config['type'].capitalize()}\n"
-                      f"**Déclencheur** : <@&{config['role_id']}>\n"
-                      f"**Action** : `{config['action']}`\n"
-                      f"**Salon** : <#{config['channel_id']}>\n"
-                      f"**Statut** : {'✅ Activée' if config['enabled'] else '❌ Désactivée'}",
-                inline=False
-            )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @discord.ui.button(label="Activer/Désactiver", style=discord.ButtonStyle.green)
-    async def toggle_rule(self, interaction: discord.Interaction, button: Button):
-        guild_id = str(interaction.guild.id)
-        configs = self.cog.configurations.get(guild_id, {})
-
-        if not configs:
-            await interaction.response.send_message("📭 Aucune règle à activer/désactiver.", ephemeral=True)
-            return
-
-        options = [
-            discord.SelectOption(label=f"Règle `{config_id}`", value=config_id)
-            for config_id in configs
-        ]
-        select = discord.ui.Select(placeholder="Choisissez une règle à activer/désactiver", options=options)
-
-        async def select_callback(interaction: discord.Interaction):
-            selected_id = select.values[0]
-            config = configs[selected_id]
-            config["enabled"] = not config["enabled"]
-            self.cog.save_configurations()
-            await interaction.response.send_message(f"✅ Règle `{selected_id}` {'activée' if config['enabled'] else 'désactivée'} avec succès.", ephemeral=True)
-
-        select.callback = select_callback
-        view = View()
-        view.add_item(select)
-        await interaction.response.send_message("Sélectionnez une règle à activer/désactiver :", view=view, ephemeral=True)
+        elif selected_action == "modify_rule":
+            await self.cog.modify_rule(interaction)
+        elif selected_action == "delete_rule":
+            await self.cog.delete_configuration(interaction)
+        elif selected_action == "toggle_rule":
+            await self.cog.toggle_rule(interaction)
+        elif selected_action == "view_rules":
+            await self.cog.view_rules(interaction)
 
 async def setup(bot):
     await bot.add_cog(ConfigEvent(bot))
