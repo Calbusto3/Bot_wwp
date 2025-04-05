@@ -185,6 +185,32 @@ class ConfigEvent(commands.Cog):
         view.add_item(select)
         await interaction.response.send_message("Sélectionnez une règle à modifier :", view=view, ephemeral=True)
 
+    async def delete_configuration(self, interaction: discord.Interaction):
+        guild_id = str(interaction.guild.id)
+        configs = self.configurations.get(guild_id, {})
+
+        if not configs:
+            await interaction.response.send_message("📭 Aucune règle à supprimer.", ephemeral=True)
+            return
+
+        # Création d'un sélecteur pour choisir la règle à supprimer
+        options = [
+            discord.SelectOption(label=f"Règle `{config_id}`", value=config_id)
+            for config_id in configs
+        ]
+        select = discord.ui.Select(placeholder="Choisissez une règle à supprimer", options=options)
+
+        async def select_callback(interaction: discord.Interaction):
+            selected_id = select.values[0]
+            del self.configurations[guild_id][selected_id]
+            self.save_configurations()
+            await interaction.response.send_message(f"✅ Règle `{selected_id}` supprimée avec succès.", ephemeral=True)
+
+        select.callback = select_callback
+        view = View()
+        view.add_item(select)
+        await interaction.response.send_message("Sélectionnez une règle à supprimer :", view=view, ephemeral=True)
+
 class EditConfigModal(Modal, title="✏️ Modifier la configuration"):
     def __init__(self, cog: ConfigEvent, guild_id: str, index: int, config: dict):
         super().__init__()
@@ -265,21 +291,8 @@ class AddRuleModal(Modal, title="➕ Ajouter une règle"):
         self.cog = cog
 
         self.trigger_role = TextInput(label="ID du rôle déclencheur", placeholder="123456789012345678", required=True)
-        self.event_type = Select(
-            placeholder="Type d'événement...",
-            options=[
-                discord.SelectOption(label="Gain de rôle", value="gain"),
-                discord.SelectOption(label="Perte de rôle", value="perte"),
-            ]
-        )
-        self.action = Select(
-            placeholder="Choisissez une action...",
-            options=[
-                discord.SelectOption(label="Envoyer un message", value="send_message"),
-                discord.SelectOption(label="Envoyer un emoji", value="send_emoji"),
-                discord.SelectOption(label="Réagir à un message", value="react_message"),
-            ]
-        )
+        self.event_type = TextInput(label="Type d'événement (gain ou perte)", placeholder="gain", required=True)
+        self.action = TextInput(label="Action (send_message, send_emoji, react_message)", placeholder="send_message", required=True)
         self.channel_id = TextInput(label="ID du salon cible", placeholder="123456789012345678", required=True)
         self.message = TextInput(label="Message (si applicable)", placeholder="Bienvenue !", required=False)
 
@@ -296,8 +309,8 @@ class AddRuleModal(Modal, title="➕ Ajouter une règle"):
         # Sauvegarde de la règle
         self.cog.configurations.setdefault(guild_id, {})[config_id] = {
             "role_id": int(self.trigger_role.value.strip()),
-            "type": self.event_type.values[0],
-            "action": self.action.values[0],
+            "type": self.event_type.value.strip(),
+            "action": self.action.value.strip(),
             "channel_id": int(self.channel_id.value.strip()),
             "message": self.message.value.strip() if self.message.value else None,
             "enabled": True
