@@ -1,91 +1,116 @@
 import discord
 import json
 import os
+import uuid
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Select, Button
 
+
 class AutoRole(commands.Cog):
-    def __init__(self, bot):
+    """Cog pour gérer les autorôles interactifs."""
+
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.config_file = "autoroles.json"
+        self.config = {}
         self.load_config()
 
-    def load_config(self):
+    def load_config(self) -> None:
         """Charge les configurations de rôles et conditions depuis le fichier JSON."""
         if os.path.exists(self.config_file):
             with open(self.config_file, "r") as file:
                 self.config = json.load(file)
         else:
-            self.config = {}
+            self.config = {"autoroles": []}
 
-    def save_config(self):
+    def save_config(self) -> None:
         """Sauvegarde les configurations dans le fichier JSON."""
         with open(self.config_file, "w") as file:
             json.dump(self.config, file, indent=4)
 
+    @staticmethod
+    def create_button(label: str, style: discord.ButtonStyle, callback) -> Button:
+        """Crée un bouton avec un callback."""
+        button = Button(label=label, style=style)
+        button.callback = callback
+        return button
+
     @app_commands.command(name="setup_autorole", description="Configurer un autorôle")
     @app_commands.default_permissions(administrator=True)
-    async def setup_auto_role(self, interaction: discord.Interaction):
+    async def setup_auto_role(self, interaction: discord.Interaction) -> None:
         """Configurer un autorôle avec une interface complète de gestion."""
+        await self.send_main_embed(interaction)
+
+    async def send_main_embed(self, interaction: discord.Interaction, message: discord.Message = None) -> None:
+        """Envoie ou met à jour l'embed principal."""
         embed = discord.Embed(
             title="Gestion des Autorôles",
             description="Utilisez les boutons pour gérer les autorôles du serveur.",
             color=discord.Color.green()
         )
 
-        # Création des boutons pour activer/désactiver, ajouter, modifier, supprimer un autorôle
-        button_enable = Button(label="Activer/Désactiver le système", style=discord.ButtonStyle.primary)
-        button_add = Button(label="Ajouter un autorôle", style=discord.ButtonStyle.secondary)
-        button_modify = Button(label="Modifier un autorôle", style=discord.ButtonStyle.secondary)
-        button_remove = Button(label="Supprimer un autorôle", style=discord.ButtonStyle.danger)
+        # Ajouter les autorôles existants à l'embed
+        if self.config["autoroles"]:
+            for autorole in self.config["autoroles"]:
+                role = interaction.guild.get_role(autorole["role"])
+                if role:
+                    embed.add_field(
+                        name=f"{role.name} -> {autorole['condition']}",
+                        value=f"Statut : {'✅ Activé' if autorole['enabled'] else '❌ Désactivé'}",
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="Rôle introuvable",
+                        value="❌ Ce rôle a été supprimé ou n'est plus accessible.",
+                        inline=False
+                    )
+        else:
+            embed.description += "\n\n*Aucun autorôle configuré.*"
 
-        async def button_enable_callback(interaction: discord.Interaction):
-            # Activation ou désactivation du système
-            await interaction.response.send_message("🔄 Le système des autorôles a été activé ou désactivé.", ephemeral=True)
-
-        async def button_add_callback(interaction: discord.Interaction):
-            # Ajouter un autorôle
-            await interaction.response.send_message("Veuillez sélectionner un rôle et une condition pour l'autorôle.", ephemeral=True)
-            view_add = await self.create_add_view(interaction)
-            await interaction.followup.send(embed=embed, view=view_add)
-
-        async def button_modify_callback(interaction: discord.Interaction):
-            # Modifier un autorôle
-            await interaction.response.send_message("Sélectionnez un autorôle à modifier.", ephemeral=True)
-            view_modify = await self.create_modify_view(interaction)
-            await interaction.followup.send(embed=embed, view=view_modify)
-
-        async def button_remove_callback(interaction: discord.Interaction):
-            # Supprimer un autorôle
-            await interaction.response.send_message("Sélectionnez un autorôle à supprimer.", ephemeral=True)
-            view_remove = await self.create_remove_view(interaction)
-            await interaction.followup.send(embed=embed, view=view_remove)
-
-        # Ajout des callbacks aux boutons
-        button_enable.callback = button_enable_callback
-        button_add.callback = button_add_callback
-        button_modify.callback = button_modify_callback
-        button_remove.callback = button_remove_callback
+        # Boutons interactifs
+        button_enable = self.create_button(
+            "Activer/Désactiver le système",
+            discord.ButtonStyle.green if self.config.get("enabled", True) else discord.ButtonStyle.red,
+            self.toggle_system
+        )
+        button_add = self.create_button("Ajouter un autorôle", discord.ButtonStyle.secondary, self.send_add_embed)
+        button_modify = self.create_button("Modifier un autorôle", discord.ButtonStyle.secondary, self.send_modify_embed)
+        button_remove = self.create_button("Supprimer un autorôle", discord.ButtonStyle.danger, self.send_remove_embed)
 
         # Créer la vue avec les boutons
-        view = View(timeout=None)
+        view = View(timeout=300)
         view.add_item(button_enable)
         view.add_item(button_add)
         view.add_item(button_modify)
         view.add_item(button_remove)
 
-        # Envoyer l'embed avec les boutons
-        await interaction.response.send_message(embed=embed, view=view)
+        # Envoyer ou mettre à jour le message
+        if message:
+            await message.edit(embed=embed, view=view)
+        else:
+            await interaction.response.send_message(embed=embed, view=view)
 
-    async def create_add_view(self, interaction: discord.Interaction):
-        """Création d'une vue pour ajouter un autorôle avec un rôle et une condition."""
-        if not interaction.guild:
-            await interaction.response.send_message("❌ Cette commande doit être exécutée dans un serveur.", ephemeral=True)
-            return
+    async def toggle_system(self, interaction: discord.Interaction) -> None:
+        """Active ou désactive le système d'autorôles."""
+        self.config["enabled"] = not self.config.get("enabled", True)
+        self.save_config()
+        await self.send_main_embed(interaction, message=interaction.message)
+
+    async def send_add_embed(self, interaction: discord.Interaction, message: discord.Message = None) -> None:
+        """Envoie ou met à jour l'embed pour ajouter un autorôle."""
+        embed = discord.Embed(
+            title="Ajouter un Autorôle",
+            description="Sélectionnez un rôle et une condition pour l'autorôle.",
+            color=discord.Color.blue()
+        )
 
         # Créer une liste des rôles dans le serveur
-        roles = [discord.SelectOption(label=role.name, value=str(role.id)) for role in interaction.guild.roles]
+        roles = [
+            discord.SelectOption(label=role.name, value=str(role.id))
+            for role in interaction.guild.roles if role < interaction.guild.me.top_role
+        ]
 
         # Définir les conditions possibles pour l'autorôle
         conditions = [
@@ -97,6 +122,7 @@ class AutoRole(commands.Cog):
 
         select_role = Select(placeholder="Sélectionner un rôle", options=roles)
         select_condition = Select(placeholder="Sélectionner une condition", options=conditions)
+        button_back = Button(label="Retour", style=discord.ButtonStyle.secondary)
 
         async def select_callback(interaction: discord.Interaction):
             selected_role_id = select_role.values[0]
@@ -104,106 +130,125 @@ class AutoRole(commands.Cog):
 
             # Ajouter l'autorôle à la configuration
             role = interaction.guild.get_role(int(selected_role_id))
-            if role and selected_condition:
-                role_condition = f"{role.id} -> {selected_condition}"
-                if role_condition not in self.config:
-                    self.config[role_condition] = {"role": role.id, "condition": selected_condition}
-                    self.save_config()
-                    await interaction.response.send_message(f"✅ L'auto-rôle `{role.name}` a été ajouté avec la condition `{selected_condition}`.", ephemeral=True)
-                else:
-                    await interaction.response.send_message(f"❌ Cet autorôle `{role.name}` existe déjà.", ephemeral=True)
-            else:
-                await interaction.response.send_message("❌ Role ou condition non valide.", ephemeral=True)
+            if any(ar["role"] == int(selected_role_id) and ar["condition"] == selected_condition for ar in self.config["autoroles"]):
+                await interaction.response.send_message("❌ Cet autorôle existe déjà.", ephemeral=True)
+                return
+
+            self.config["autoroles"].append({
+                "id": str(uuid.uuid4())[:8],
+                "role": int(selected_role_id),
+                "condition": selected_condition,
+                "enabled": True
+            })
+            self.save_config()
+            await self.send_main_embed(interaction, message=message)
+
+        async def button_back_callback(interaction: discord.Interaction):
+            await self.send_main_embed(interaction, message=message)
 
         select_role.callback = select_callback
         select_condition.callback = select_callback
+        button_back.callback = button_back_callback
 
         view = View(timeout=None)
         view.add_item(select_role)
         view.add_item(select_condition)
+        view.add_item(button_back)
 
-        return view
+        if message:
+            await message.edit(embed=embed, view=view)
+        else:
+            await interaction.response.send_message(embed=embed, view=view)
 
-    async def create_modify_view(self, interaction: discord.Interaction):
-        """Création d'une vue pour modifier un autorôle."""
-        autoroles = [discord.SelectOption(label=f"{data['role']} -> {data['condition']}", value=key) for key, data in self.config.items()]
-        select_autorole = Select(placeholder="Sélectionner un autorôle à modifier", options=autoroles)
+    async def send_modify_embed(self, interaction: discord.Interaction, message: discord.Message = None) -> None:
+        """Envoie ou met à jour l'embed pour modifier un autorôle."""
+        embed = discord.Embed(
+            title="Modifier un Autorôle",
+            description="Sélectionnez un autorôle à modifier.",
+            color=discord.Color.orange()
+        )
 
-        async def select_callback(interaction: discord.Interaction):
-            autorole_key = select_autorole.values[0]
-            autorole_data = self.config.get(autorole_key)
-            if autorole_data:
-                role = interaction.guild.get_role(autorole_data['role'])
-                embed = discord.Embed(
-                    title="Modifier l'Autorôle",
-                    description=f"Vous modifiez le rôle `{role.name}` avec la condition `{autorole_data['condition']}`.",
-                    color=discord.Color.orange()
-                )
-                embed.add_field(name="Nouvelle Condition", value="Choisissez une nouvelle condition ou rôle.")
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            else:
-                await interaction.response.send_message("❌ Autorôle introuvable.", ephemeral=True)
+        # Créer une liste des autorôles existants
+        options = [
+            discord.SelectOption(label=f"{interaction.guild.get_role(ar['role']).name} -> {ar['condition']}", value=ar["id"])
+            for ar in self.config["autoroles"] if interaction.guild.get_role(ar["role"])
+        ]
 
-        select_autorole.callback = select_callback
-        view = View(timeout=None)
-        view.add_item(select_autorole)
-
-        return view
-
-    async def create_remove_view(self, interaction: discord.Interaction):
-        """Création d'une vue pour supprimer un autorôle."""
-        autoroles = [discord.SelectOption(label=f"{data['role']} -> {data['condition']}", value=key) for key, data in self.config.items()]
-        select_autorole = Select(placeholder="Sélectionner un autorôle à supprimer", options=autoroles)
-
-        async def select_callback(interaction: discord.Interaction):
-            autorole_key = select_autorole.values[0]
-            self.config.pop(autorole_key, None)
-            self.save_config()
-            await interaction.response.send_message(f"✅ L'auto-rôle `{autorole_key}` a été supprimé.", ephemeral=True)
-
-        select_autorole.callback = select_callback
-        view = View(timeout=None)
-        view.add_item(select_autorole)
-
-        return view
-
-    @commands.Cog.listener()
-    async def on_member_join(self, member):
-        """Attribuer un autorôle à un nouveau membre."""
-        for _, data in self.config.items():
-            if data["condition"] == "Nouveau membre":
-                role = member.guild.get_role(data["role"])
-                if role:
-                    await member.add_roles(role)
-
-    @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        """Attribuer un autorôle si un membre rejoint un salon vocal ou envoie un message."""
-        for _, data in self.config.items():
-            role = after.guild.get_role(data["role"])
-            if data["condition"] == "Rejoindre un salon vocal" and before.voice is None and after.voice:
-                if role:
-                    await after.add_roles(role)
-
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        """Attribuer un autorôle si un membre envoie un message."""
-        if message.author.bot:
+        if not options:
+            await interaction.response.send_message("❌ Aucun autorôle à modifier.", ephemeral=True)
             return
-        for _, data in self.config.items():
-            if data["condition"] == "Envoyer un message":
-                role = message.guild.get_role(data["role"])
-                if role:
-                    await message.author.add_roles(role)
 
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        """Attribuer un autorôle si un utilisateur réagit à un message."""
-        for _, data in self.config.items():
-            if data["condition"] == "Réagir à un message":
-                role = user.guild.get_role(data["role"])
-                if role:
-                    await user.add_roles(role)
+        select = Select(placeholder="Sélectionnez un autorôle", options=options)
+        button_back = Button(label="Retour", style=discord.ButtonStyle.secondary)
 
-async def setup(bot):
+        async def select_callback(interaction: discord.Interaction):
+            selected_id = select.values[0]
+            autorole = next((ar for ar in self.config["autoroles"] if ar["id"] == selected_id), None)
+            if not autorole:
+                await interaction.response.send_message("❌ Autorôle introuvable.", ephemeral=True)
+                return
+
+            # Afficher une modale ou une autre interface pour modifier l'autorôle
+            await interaction.response.send_message("Modification non implémentée.", ephemeral=True)
+
+        async def button_back_callback(interaction: discord.Interaction):
+            await self.send_main_embed(interaction, message=message)
+
+        select.callback = select_callback
+        button_back.callback = button_back_callback
+
+        view = View(timeout=None)
+        view.add_item(select)
+        view.add_item(button_back)
+
+        if message:
+            await message.edit(embed=embed, view=view)
+        else:
+            await interaction.response.send_message(embed=embed, view=view)
+
+    async def send_remove_embed(self, interaction: discord.Interaction, message: discord.Message = None) -> None:
+        """Envoie ou met à jour l'embed pour supprimer un autorôle."""
+        embed = discord.Embed(
+            title="Supprimer un Autorôle",
+            description="Sélectionnez un autorôle à supprimer.",
+            color=discord.Color.red()
+        )
+
+        # Créer une liste des autorôles existants
+        options = [
+            discord.SelectOption(label=f"{interaction.guild.get_role(ar['role']).name} -> {ar['condition']}", value=ar["id"])
+            for ar in self.config["autoroles"] if interaction.guild.get_role(ar["role"])
+        ]
+
+        if not options:
+            await interaction.response.send_message("❌ Aucun autorôle à supprimer.", ephemeral=True)
+            return
+
+        select = Select(placeholder="Sélectionnez un autorôle", options=options)
+        button_back = Button(label="Retour", style=discord.ButtonStyle.secondary)
+
+        async def select_callback(interaction: discord.Interaction):
+            selected_id = select.values[0]
+            self.config["autoroles"] = [ar for ar in self.config["autoroles"] if ar["id"] != selected_id]
+            self.save_config()
+            await self.send_main_embed(interaction, message=message)
+
+        async def button_back_callback(interaction: discord.Interaction):
+            await self.send_main_embed(interaction, message=message)
+
+        select.callback = select_callback
+        button_back.callback = button_back_callback
+
+        view = View(timeout=None)
+        view.add_item(select)
+        view.add_item(button_back)
+
+        if message:
+            await message.edit(embed=embed, view=view)
+        else:
+            await interaction.response.send_message(embed=embed, view=view)
+
+
+async def setup(bot: commands.Bot) -> None:
+    """Ajoute le cog au bot."""
     await bot.add_cog(AutoRole(bot))

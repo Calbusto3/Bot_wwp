@@ -10,14 +10,6 @@ class ServerBot(commands.Cog):
         self.hidden_channels = {} 
         self.active_servers = {}  # Stocke les serveurs où le système est activé
         self.logs = {}
-        self.role_messages = {
-            123456789012345678:  # ID du rôle
-                {
-                    "channels": [],  # ID du salon
-                    "message": "Un utilisateur avec le rôle @mention a envoyé un message."
-                },
-        }
-
         self.welcome_message_2 = """Bienvenue chez nous !
 
 Nous mettons à votre disposition un serveur où nous **offrons gratuitement** des jeux qui sont normalement payants.
@@ -199,52 +191,6 @@ Si tu as des questions, n’hésite pas à nous rejoindre dans ⁠<#114183530357
             await ctx.author.send(embed=embed_dm)
         except discord.Forbidden:
             await ctx.send("impossible d'envoyer le timestamp en MP.")
-
-
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        """Gère l'envoi de messages par les utilisateurs avec certains rôles"""
-        if message.author.bot:
-            return
-
-        # Vérifie si l'utilisateur a l'un des rôles définis dans le dictionnaire
-        if any(role.id in self.role_messages for role in message.author.roles):
-            for role_id, config in self.role_messages.items():
-                if role_id in [role.id for role in message.author.roles]:
-                    for channel_id in config["channels"]:
-                        channel = self.bot.get_channel(channel_id)
-                        if channel:
-                            await channel.send(f"{message.author.mention} {config['message']}")
-
-        await self.bot.process_commands(message)
-
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        """Gère l'ajout de réactions par les utilisateurs avec certains rôles"""
-        if user.bot:
-            return
-
-        if any(role.id in self.role_messages for role in user.roles):
-            for role_id, config in self.role_messages.items():
-                if role_id in [role.id for role in user.roles]:
-                    for channel_id in config["channels"]:
-                        channel = self.bot.get_channel(channel_id)
-                        if channel:
-                            await channel.send(f"{user.mention} a réagi à un message.")
-
-    @commands.Cog.listener()
-    async def on_message_with_file(self, message):
-        """Gère les messages contenant des fichiers envoyés par les utilisateurs avec certains rôles"""
-        if message.author.bot:
-            return
-
-        if any(role.id in self.role_messages for role in message.author.roles):
-            for role_id, config in self.role_messages.items():
-                if role_id in [role.id for role in message.author.roles]:
-                    for channel_id in config["channels"]:
-                        channel = self.bot.get_channel(channel_id)
-                        if channel:
-                            await channel.send(f"{message.author.mention} a envoyé un fichier.")
 
 
 async def setup(bot):
