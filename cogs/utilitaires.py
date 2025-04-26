@@ -15,6 +15,8 @@ import locale
 class Utilitaire(commands.Cog):
     def __init__(self, bot):
         self.generated_codes = set()
+        self.verifications = {}
+        
         self.bot = bot
         self.sanctions_file = 'sanctions.json'
         self.load_sanctions()
@@ -120,15 +122,12 @@ class Utilitaire(commands.Cog):
 
     @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
     async def verifier(self, ctx, membre: discord.Member):
-        # Rôles à ajouter selon le genre
         roles_femme = [1248044201959227414, 1248282244779343992, 1354569448836567162, 1132024847032143913]
         roles_homme = [1248044201959227414, 1248282343718780979, 1354569448836567162, 1132024847032143913]
-        
-        # Salons d'annonce et de log
-        salon_annonce_id = 1353301864049016833
-        salon_log_staff_id = 1354918047231512688
 
-        # Création du select menu
+        salon_annonce_id = 1353301864049016833
+        salon_log_staff_id = 1353299043261874230
+
         options = [
             discord.SelectOption(label="Homme", description="Vérifier comme homme", value="homme"),
             discord.SelectOption(label="Femme", description="Vérifier comme femme", value="femme")
@@ -145,27 +144,34 @@ class Utilitaire(commands.Cog):
             genre = select.values[0]
             roles = roles_homme if genre == "homme" else roles_femme
 
-            # Ajouter les rôles au membre
             for role_id in roles:
                 role = ctx.guild.get_role(role_id)
                 if role:
                     await membre.add_roles(role)
 
-            # Retirer [FAKE] dans le pseudo si présent
             if membre.nick and membre.nick.startswith("[FAKE]"):
                 nouveau_pseudo = membre.nick.replace("[FAKE]", "").strip()
                 try:
                     await membre.edit(nick=nouveau_pseudo)
                 except discord.Forbidden:
                     await interaction.followup.send(
-                        "⚠️ Impossible de retirer le tag [FAKE] : permissions insuffisantes.", ephemeral=True
+                        "Impossible de retirer le tag [FAKE] : permissions insuffisantes.", ephemeral=True
                     )
 
-            # Génération d'un code unique
+            # Générer le code
             code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
             while code in self.generated_codes:
                 code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
             self.generated_codes.add(code)
+
+            # Stocker les infos dans verifications
+            date_now = discord.utils.utcnow()
+            self.verifications[code] = {
+                "membre": membre.id,
+                "verifié_par": ctx.author.id,
+                "genre": genre,
+                "date": date_now
+            }
 
             # Envoyer le code en DM
             try:
@@ -182,25 +188,22 @@ class Utilitaire(commands.Cog):
                 await membre.send(embed=embed_dm)
             except discord.Forbidden:
                 await interaction.followup.send(
-                    "⚠️ Impossible d'envoyer un MP au membre. Pensez à lui transmettre son code manuellement.", ephemeral=True
+                    "Impossible d'envoyer un MP au membre. Pensez à lui transmettre son code manuellement.", ephemeral=True
                 )
 
-            # Annonce publique
             salon_annonce = ctx.guild.get_channel(salon_annonce_id)
             if salon_annonce:
                 await salon_annonce.send(
                     f"{membre.mention} a été vérifié(e) comme **{genre}** majeur(e) et safe !"
                 )
 
-            # Log staff
             salon_log = ctx.guild.get_channel(salon_log_staff_id)
             if salon_log:
-                date = discord.utils.format_dt(discord.utils.utcnow(), "D")
+                date = discord.utils.format_dt(date_now, "D")
                 await salon_log.send(
                     f"🔒 {membre} a été vérifié(e) le {date} | Code : `{code}` | Genre : **{genre}**"
                 )
 
-            # Confirmation publique
             embed_confirmation = discord.Embed(
                 title="Vérification réussie",
                 description=f"{membre.mention} est maintenant vérifié(e) !",
@@ -208,7 +211,7 @@ class Utilitaire(commands.Cog):
             )
             await ctx.send(embed=embed_confirmation)
 
-            await interaction.response.send_message("✅", ephemeral=True)
+            await interaction.response.send_message("✅.", ephemeral=True)
 
         select.callback = select_callback
 
@@ -216,6 +219,31 @@ class Utilitaire(commands.Cog):
         view.add_item(select)
 
         await ctx.send("🔍 **Sélectionnez le genre du membre :**", view=view)
+
+    @commands.hybrid_command(name="check", description="Vérifie l'authenticité d'un code de vérification.")
+    async def check(self, ctx, code: str):
+        infos = self.verifications.get(code.upper())
+
+        if infos is None:
+            await ctx.reply("Ce code de vérification n'existe pas ou est invalide.", ephemeral=True)
+            return
+
+        membre = ctx.guild.get_member(infos["membre"])
+        verificateur = ctx.guild.get_member(infos["verifié_par"])
+        genre = infos["genre"]
+        date = discord.utils.format_dt(infos["date"], "D")
+
+        embed = discord.Embed(
+            title="Résultat de la vérification",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="👤 Membre", value=membre.mention if membre else f"`{infos['membre']}`", inline=False)
+        embed.add_field(name="🛡️ Vérifié par", value=verificateur.mention if verificateur else f"`{infos['verifié_par']}`", inline=False)
+        embed.add_field(name="🏷️ Genre", value=f"**{genre.capitalize()}**", inline=True)
+        embed.add_field(name="📅 Date", value=date, inline=True)
+        embed.set_footer(text="Vérification officielle")
+
+        await ctx.send(embed=embed)
 
     @app_commands.command(name="fake", description="Affiche un membre comme fake")
     @app_commands.describe(
