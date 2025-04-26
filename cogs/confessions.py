@@ -73,7 +73,7 @@ class Confesser(commands.Cog):
     async def confesser(self, interaction: discord.Interaction, *, confession: str):
         # Anti message trop court
         if len(confession.strip()) < 10:
-            await interaction.response.send_message("❌ Votre confession est trop courte. Minimum **10 caractères** requis !", ephemeral=True)
+            await interaction.response.send_message("Votre confession est trop courte. Minimum **10 caractères** requis !", ephemeral=True)
             return
 
         # Cooldown
