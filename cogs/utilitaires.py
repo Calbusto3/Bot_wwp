@@ -140,7 +140,7 @@ class Utilitaire(commands.Cog):
 
 @commands.hybrid_command(name="vérifier", description="Vérifier un membre.")
 @commands.has_permissions(manage_roles=True)
-async def verifier(self, ctx: commands.Context, membre: discord.Member):
+async def verifier(self, ctx, membre: discord.Member):
     # Définition rapide ici pour être sûr (à placer dans __init__ dans l'idéal)
     roles_femme = [1248044201959227414, 1248282244779343992, 1354569448836567162, 1132024847032143913]
     roles_homme = [1248044201959227414, 1248282343718780979, 1354569448836567162, 1132024847032143913]
