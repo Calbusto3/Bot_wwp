@@ -104,11 +104,14 @@ class TicketSystem(commands.Cog):
 
     async def close_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
         """Fermer un ticket."""
+        # Nettoyer le nom du ticket pour éviter les doublons de suffixes
+        base_name = channel.name.replace(" - fermé", "").replace(" - rouvert", "")
+
         # Modifier les permissions pour retirer l'accès au membre
         await channel.set_permissions(ticket_owner, read_messages=False, send_messages=False)
 
         # Renommer le salon pour indiquer qu'il est fermé
-        await channel.edit(name=f"{channel.name} - fermé")
+        await channel.edit(name=f"{base_name} - fermé")
 
         # Envoyer un message indiquant que le ticket est fermé
         embed = discord.Embed(
@@ -131,11 +134,14 @@ class TicketSystem(commands.Cog):
 
     async def reopen_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
         """Réouvrir un ticket."""
+        # Nettoyer le nom du ticket pour éviter les doublons de suffixes
+        base_name = channel.name.replace(" - fermé", "").replace(" - rouvert", "")
+
         # Redonner l'accès au membre
         await channel.set_permissions(ticket_owner, read_messages=True, send_messages=True)
 
         # Renommer le salon pour indiquer qu'il est réouvert
-        await channel.edit(name=channel.name.replace(" - fermé", ""))
+        await channel.edit(name=f"{base_name} - rouvert")
 
         # Envoyer un message indiquant que le ticket est réouvert
         embed = discord.Embed(
@@ -149,20 +155,30 @@ class TicketSystem(commands.Cog):
     async def delete_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel):
         """Supprimer un ticket et envoyer les logs."""
         # Récupérer l'historique des messages
-        messages = await channel.history(limit=None, oldest_first=True).flatten()
-        log_content = "\n".join([f"[{msg.created_at}] {msg.author}: {msg.content}" for msg in messages])
+        messages = []
+        async for msg in channel.history(limit=None, oldest_first=True):
+            messages.append(f"[{msg.created_at}] {msg.author}: {msg.content}")
+
+        log_content = "\n".join(messages)
 
         # Envoyer les logs dans le salon dédié
         log_channel = self.bot.get_channel(self.ticket_log_channel_id)
         if log_channel and log_content.strip():
             await log_channel.send(
                 content=f"Logs du ticket {channel.name} :",
-                file=discord.File(fp=log_content, filename=f"{channel.name}.txt")
+                file=discord.File(fp=self.create_log_file(log_content, channel.name), filename=f"{channel.name}.txt")
             )
 
         # Supprimer le salon
         await channel.delete()
-        await interaction.response.send_message("Ticket supprimé.", ephemeral=True)
+        await interaction.response.send_message("✅ Ticket supprimé.", ephemeral=True)
+
+    def create_log_file(self, content: str, channel_name: str) -> str:
+        """Créer un fichier temporaire pour les logs."""
+        file_path = f"{channel_name}_log.txt"
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(content)
+        return file_path
 
 
 async def setup(bot: commands.Bot):
