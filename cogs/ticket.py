@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord.ui import View, Select, Button
 import os
+import asyncio
 
 class TicketSystem(commands.Cog):
     """Système de tickets avec menu déroulant et gestion avancée."""
@@ -82,6 +83,9 @@ class TicketSystem(commands.Cog):
         }
         ticket_channel = await category.create_text_channel(name=ticket_name, overwrites=overwrites)
 
+        # Ajouter un délai de 1 seconde entre les actions
+        await asyncio.sleep(1)
+
         # Envoyer un message dans le salon du ticket
         embed = discord.Embed(
             title=f"🎫 Ticket - {reason.capitalize()}",
@@ -105,13 +109,18 @@ class TicketSystem(commands.Cog):
     async def close_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
         """Fermer un ticket."""
         # Nettoyer le nom du ticket pour éviter les doublons de suffixes
-        base_name = channel.name.replace(" - fermé", "").replace(" - rouvert", "")
+        base_name = channel.name.split(" -")[0]  # Supprime tout après le premier " -"
+
+        # Vérifier si le nom est déjà correct avant de le modifier
+        new_name = f"{base_name} - fermé"
+        if channel.name != new_name:
+            try:
+                await channel.edit(name=new_name)
+            except discord.HTTPException as e:
+                print(f"Rate limit atteint : {e}")
 
         # Modifier les permissions pour retirer l'accès au membre
         await channel.set_permissions(ticket_owner, read_messages=False, send_messages=False)
-
-        # Renommer le salon pour indiquer qu'il est fermé
-        await channel.edit(name=f"{base_name} - fermé")
 
         # Envoyer un message indiquant que le ticket est fermé
         embed = discord.Embed(
@@ -135,13 +144,18 @@ class TicketSystem(commands.Cog):
     async def reopen_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
         """Réouvrir un ticket."""
         # Nettoyer le nom du ticket pour éviter les doublons de suffixes
-        base_name = channel.name.replace(" - fermé", "").replace(" - rouvert", "")
+        base_name = channel.name.split(" -")[0]  # Supprime tout après le premier " -"
+
+        # Vérifier si le nom est déjà correct avant de le modifier
+        new_name = f"{base_name} - rouvert"
+        if channel.name != new_name:
+            try:
+                await channel.edit(name=new_name)
+            except discord.HTTPException as e:
+                print(f"Rate limit atteint : {e}")
 
         # Redonner l'accès au membre
         await channel.set_permissions(ticket_owner, read_messages=True, send_messages=True)
-
-        # Renommer le salon pour indiquer qu'il est réouvert
-        await channel.edit(name=f"{base_name} - rouvert")
 
         # Envoyer un message indiquant que le ticket est réouvert
         embed = discord.Embed(
