@@ -1,14 +1,17 @@
 import discord
 from discord.ext import commands
-from discord.ui import View, Select, Button
+from discord.ui import View, Button
 import os
+import json
 import asyncio
+
 
 class TicketSystem(commands.Cog):
     """Système de tickets avec menu déroulant et gestion avancée."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.data_file = "ticket_data.json"
         self.ticket_categories = {
             "partenariat": {"description": "Faire une demande de partenariat", "category_id": 1371176734434529361, "role_ping": 1371177529297342564},
             "se vérifier": {"description": "Se faire vérifier", "category_id": 1371177186937278554, "role_ping": 1371177629570568264},
@@ -18,11 +21,28 @@ class TicketSystem(commands.Cog):
             "autre": {"description": "Pour une autre raison", "category_id": 1371185321043165274, "role_ping": 1371177752975249561},
         }
         self.ticket_log_channel_id = 1355619861153317004  # ID du salon log des tickets
-        self.ticket_counter = 0  # Compteur pour les numéros de tickets
+        self.ticket_data = self.load_ticket_data()
+
+    def load_ticket_data(self):
+        """Charger les données des tickets depuis un fichier JSON."""
+        if os.path.exists(self.data_file):
+            with open(self.data_file, "r") as file:
+                return json.load(file)
+        return {"counter": 0, "tickets": {}}
+
+    def save_ticket_data(self):
+        """Sauvegarder les données des tickets dans un fichier JSON."""
+        with open(self.data_file, "w") as file:
+            json.dump(self.ticket_data, file, indent=4)
 
     @commands.Cog.listener()
     async def on_ready(self):
+        """Réinitialiser les boutons sur les salons actifs au redémarrage."""
         print("🎫 Système de tickets prêt !")
+        for ticket_id, ticket_info in self.ticket_data["tickets"].items():
+            channel = self.bot.get_channel(ticket_info["channel_id"])
+            if channel:
+                await self.add_ticket_buttons(channel, ticket_info["user_id"])
 
     @commands.command(name="setup_ticket", description="Configurer le système de tickets.")
     @commands.has_permissions(administrator=True)
@@ -39,7 +59,7 @@ class TicketSystem(commands.Cog):
         )
 
         # Menu déroulant pour sélectionner une raison
-        select = Select(placeholder="Choisissez une raison", options=[
+        select = discord.ui.Select(placeholder="Choisissez une raison", options=[
             discord.SelectOption(label=reason.capitalize(), description=data["description"], value=reason)
             for reason, data in self.ticket_categories.items()
         ])
@@ -74,8 +94,8 @@ class TicketSystem(commands.Cog):
             return
 
         # Créer un salon pour le ticket
-        self.ticket_counter += 1
-        ticket_name = f"t-{self.ticket_counter} | {interaction.user.name}"
+        self.ticket_data["counter"] += 1
+        ticket_name = f"t-{self.ticket_data['counter']} | {interaction.user.name}"
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
@@ -83,8 +103,13 @@ class TicketSystem(commands.Cog):
         }
         ticket_channel = await category.create_text_channel(name=ticket_name, overwrites=overwrites)
 
-        # Ajouter un délai de 1 seconde entre les actions
-        await asyncio.sleep(1)
+        # Sauvegarder les informations du ticket
+        self.ticket_data["tickets"][ticket_name] = {
+            "user_id": interaction.user.id,
+            "channel_id": ticket_channel.id,
+            "reason": reason
+        }
+        self.save_ticket_data()
 
         # Envoyer un message dans le salon du ticket
         embed = discord.Embed(
@@ -93,34 +118,37 @@ class TicketSystem(commands.Cog):
             color=discord.Color.green()
         )
         role_ping = guild.get_role(category_data["role_ping"])
+        await ticket_channel.send(
+            content=f"{interaction.user.mention}, bienvenue dans votre ticket ! {role_ping.mention if role_ping else ''}",
+            embed=embed
+        )
+
+        # Ajouter les boutons au salon
+        await self.add_ticket_buttons(ticket_channel, interaction.user.id)
+        await interaction.response.send_message(f"✅ Ticket créé : {ticket_channel.mention}", ephemeral=True)
+
+    async def add_ticket_buttons(self, channel: discord.TextChannel, user_id: int):
+        """Ajouter les boutons de gestion au salon du ticket."""
         close_button = Button(label="Fermer", style=discord.ButtonStyle.red)
-        close_button.callback = lambda i: self.close_ticket(i, ticket_channel, interaction.user)
+        close_button.callback = lambda i: self.close_ticket(i, channel, user_id)
 
         view = View(timeout=None)
         view.add_item(close_button)
 
-        await ticket_channel.send(
-            content=f"{interaction.user.mention}, bienvenue dans votre ticket ! {role_ping.mention if role_ping else ''}",
-            embed=embed,
-            view=view
-        )
-        await interaction.response.send_message(f"✅ Ticket créé : {ticket_channel.mention}", ephemeral=True)
+        await channel.send(view=view)
 
-    async def close_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
+    async def close_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, user_id: int):
         """Fermer un ticket."""
         # Nettoyer le nom du ticket pour éviter les doublons de suffixes
-        base_name = channel.name.split(" -")[0]  # Supprime tout après le premier " -"
-
-        # Vérifier si le nom est déjà correct avant de le modifier
+        base_name = channel.name.split(" -")[0]
         new_name = f"{base_name} - fermé"
         if channel.name != new_name:
-            try:
-                await channel.edit(name=new_name)
-            except discord.HTTPException as e:
-                print(f"Rate limit atteint : {e}")
+            await channel.edit(name=new_name)
 
         # Modifier les permissions pour retirer l'accès au membre
-        await channel.set_permissions(ticket_owner, read_messages=False, send_messages=False)
+        member = interaction.guild.get_member(user_id)
+        if member:
+            await channel.set_permissions(member, read_messages=False, send_messages=False)
 
         # Envoyer un message indiquant que le ticket est fermé
         embed = discord.Embed(
@@ -128,43 +156,8 @@ class TicketSystem(commands.Cog):
             description=f"Ticket fermé par {interaction.user.mention}.",
             color=discord.Color.red()
         )
-        reopen_button = Button(label="Réouvrir", style=discord.ButtonStyle.green)
-        delete_button = Button(label="Supprimer", style=discord.ButtonStyle.danger)
-
-        reopen_button.callback = lambda i: self.reopen_ticket(i, channel, ticket_owner)
-        delete_button.callback = lambda i: self.delete_ticket(i, channel)
-
-        view = View(timeout=None)
-        view.add_item(reopen_button)
-        view.add_item(delete_button)
-
-        await channel.send(embed=embed, view=view)
-        await interaction.response.send_message("✅ Ticket fermé.", ephemeral=True)
-
-    async def reopen_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel, ticket_owner: discord.Member):
-        """Réouvrir un ticket."""
-        # Nettoyer le nom du ticket pour éviter les doublons de suffixes
-        base_name = channel.name.split(" -")[0]  # Supprime tout après le premier " -"
-
-        # Vérifier si le nom est déjà correct avant de le modifier
-        new_name = f"{base_name} - rouvert"
-        if channel.name != new_name:
-            try:
-                await channel.edit(name=new_name)
-            except discord.HTTPException as e:
-                print(f"Rate limit atteint : {e}")
-
-        # Redonner l'accès au membre
-        await channel.set_permissions(ticket_owner, read_messages=True, send_messages=True)
-
-        # Envoyer un message indiquant que le ticket est réouvert
-        embed = discord.Embed(
-            title="Ticket réouvert",
-            description=f"Ticket réouvert par {interaction.user.mention}.",
-            color=discord.Color.green()
-        )
         await channel.send(embed=embed)
-        await interaction.response.send_message("✅ Ticket réouvert.", ephemeral=True)
+        await interaction.response.send_message("✅ Ticket fermé.", ephemeral=True)
 
     async def delete_ticket(self, interaction: discord.Interaction, channel: discord.TextChannel):
         """Supprimer un ticket et envoyer les logs."""
